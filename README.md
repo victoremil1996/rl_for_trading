@@ -1,2 +1,2 @@
 # speciale
-Master thesis in reinforcement learning at Copenhagen Business School.
+Master thesis in reinforcement learning and its application to trading and asset allocaton.
