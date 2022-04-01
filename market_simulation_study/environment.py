@@ -1,13 +1,17 @@
+from typing import NoReturn
 import numpy as np
 import pandas as pd
 import random
 
-class market_env():
+
+class MarketEnvironment:
     def __init__(self,
                  state: dict):
         self.state = state
         self.market_prices = state["market_prices"]
+        self.matched_trades = state["execution_status"]
         self.fee = state["fee"]
+        self.agents = None
 
     def get_latencies(self):
         latencies = [0] * len(self.agents) 
@@ -27,11 +31,11 @@ class market_env():
         mean_price = 0
         n_trades = 0
         buyers, sellers = np.array(self.agents).copy(), np.array(self.agents).copy()
-        buyers = [x for _, x in sorted(zip(latencies, buyers))] # Sorting buyers according to latency
-        sellers = [x for _, x in sorted(zip(latencies, sellers))] # Sorting sellers according to latency
+        buyers = [x for _, x in sorted(zip(latencies, buyers))]  # Sorting buyers according to latency
+        sellers = [x for _, x in sorted(zip(latencies, sellers))]  # Sorting sellers according to latency
         
-        for i, buyer in enumerate(buyers): # buy index
-            for j, seller in enumerate(sellers): # sell index
+        for i, buyer in enumerate(buyers):  # buy index
+            for j, seller in enumerate(sellers):  # sell index
                 if buyer.agent_id != seller.agent_id:
                     if buyer.buy_price >= seller.sell_price:
                         matched_buy[buyer.agent_id] = 1
@@ -54,18 +58,21 @@ class market_env():
         else:
             mean_price = self.market_prices[-1]
 
+        # Update prices and trade info
         self.market_prices.append(mean_price)
-        return matched_buy, matched_sell, matched_buy_price, matched_sell_price
-    
-    def update_market(self):
-        
-        return
-    
-    def step(self, agents):
+
+        matched_trades = np.array([matched_buy, matched_sell, matched_buy_price, matched_sell_price])
+        self.matched_trades = matched_trades
+
+    def update_market(self) -> NoReturn:
+
+        self.state = {'execution_status': self.matched_trades,
+                      'market_prices': self.market_prices,
+                      'fee': self.fee}
+
+    def step(self, agents: list) -> dict:
         self.agents = agents
-        matched_buy, matched_sell, matched_buy_price, matched_sell_price = self.match()
+        self.match()
         self.update_market()
-        state = {'execution_status': np.array([matched_buy, matched_sell, matched_buy_price, matched_sell_price]),
-                 'market_prices': self.market_prices,
-                 'fee': self.fee}
-        return state
+
+        return self.state
