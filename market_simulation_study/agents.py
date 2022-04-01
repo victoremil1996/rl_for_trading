@@ -195,16 +195,16 @@ class RandomAgent(Agent):
         if execution_status[0] >= 1:
             buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
             self.all_trades.append(buy_trade)
-            self.position += execution_status[0]
+            self.position += execution_status[2]
 
         if execution_status[1] >= 1:
             sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
             self.all_trades.append(sell_trade)
-            self.position -= execution_status[1]
+            self.position -= execution_status[3]
 
 
         # Update prices and volume
-        self.random_agent_price = state["market_prices"][-1] + np.random.normal(loc = 0, scale = 1)
+        self.random_agent_price = state["market_prices"][-1] + np.random.normal(loc = 0, scale = 2)
 
         self.buy_price = self.calculate_buy_price(state)
         self.sell_price = self.calculate_sell_price(state)
@@ -259,7 +259,7 @@ class InvestorAgent(Agent):
         :param state: market state information
         :return: buy price
         """
-        buy_price = state["market_price"][-1] * (1 + self.price_margin)
+        buy_price = state["market_prices"][-1] * (1 + self.price_margin)
         buy_price = np.maximum(buy_price, 0)
         return buy_price
 
@@ -270,7 +270,7 @@ class InvestorAgent(Agent):
         :param state: market state information
         :return: sell price
         """
-        sell_price = state["market_price"][-1]
+        sell_price = state["market_prices"][-1]
         sell_price = np.maximum(sell_price, 0)
         return sell_price
 
@@ -321,12 +321,12 @@ class InvestorAgent(Agent):
         if execution_status[0] >= 1:
             buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
             self.all_trades.append(buy_trade)
-            self.position += execution_status[0]
+            self.position += execution_status[2]
 
         if execution_status[1] >= 1:
             sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
             self.all_trades.append(sell_trade)
-            self.position -= execution_status[1]
+            self.position -= execution_status[3]
 
         # instantiate no prices
         self.buy_price = np.nan
@@ -375,8 +375,8 @@ class TrendAgent(Agent):
                  buy_price: float = None,
                  sell_price: float = None,
                  all_trades: list = None,
-                 buy_volume: float = None,
-                 sell_volume: float = None,
+                 buy_volume: float = 0,
+                 sell_volume: float = 0,
                  price_margin: float = 0.05,
                  const_position_size: int = 5,
                  moving_average_one: int = 50,
@@ -408,7 +408,7 @@ class TrendAgent(Agent):
         :return: buy price
         """
         noise = np.random.normal(loc=0, scale=0.01)
-        buy_price = state["market_price"][-1] * (1 + self.price_margin + noise)
+        buy_price = state["market_prices"][-1] * (1 + self.price_margin + noise)
         buy_price = np.maximum(buy_price, 0)
         return buy_price
 
@@ -420,7 +420,7 @@ class TrendAgent(Agent):
         :return: sell price
         """
         noise = np.random.normal(loc=0, scale=0.01)
-        sell_price = state["market_price"][-1] * (1 + noise)
+        sell_price = state["market_prices"][-1] * (1 + noise)
         sell_price = np.maximum(sell_price, 0)
         return sell_price
 
@@ -471,17 +471,17 @@ class TrendAgent(Agent):
         if execution_status[0] >= 1:
             buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
             self.all_trades.append(buy_trade)
-            self.position += execution_status[0]
+            self.position += execution_status[2]
 
         if execution_status[1] >= 1:
             sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
             self.all_trades.append(sell_trade)
-            self.position -= execution_status[1]
+            self.position -= execution_status[3]
 
         # check trend direction and aim for strategic position
 
-        ma1 = state["market_price"][-self.moving_average_one:]
-        ma2 = state["market_price"][-self.moving_average_two:]
+        ma1 = np.average(state["market_prices"][-self.moving_average_one:])
+        ma2 = np.average(state["market_prices"][-self.moving_average_two:])
 
         trend = ma1 / ma2
 
@@ -489,12 +489,12 @@ class TrendAgent(Agent):
         self.sell_price = np.nan
 
         if trend >= 1 and self.position < self.const_position_size:
-            self.buy_price = self.calculate_buy_price(self.state)
-            self.buy_volume = self.calculate_buy_volume(self.state) - self.position
+            self.buy_price = self.calculate_buy_price(state)
+            self.buy_volume = self.calculate_buy_volume(state) - self.position
         elif trend >= 1 and self.position >= self.const_position_size:
             pass
         elif trend < 1 and self.position >= - self.const_position_size:
-            self.sell_price = self.sell_price(self.state)
-            self.sell_volume = self.calculate_sell_volume(self.state) + self.position
+            self.sell_price = self.calculate_sell_price(state)
+            self.sell_volume = self.calculate_sell_volume(state) + self.position
         elif trend < 1 and self.position < - self.const_position_size:
             pass

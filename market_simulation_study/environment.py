@@ -74,8 +74,8 @@ class MarketEnvironment:
                         matched_sell_volume[seller.agent_id] += trade_volume
 
                         trade_price = (buyer.buy_price + seller.sell_price) / 2#seller.sell_price
-                        matched_buy_price[buyer.agent_id] = buyer.buy_price#buyer.buy_price
-                        matched_sell_price[seller.agent_id] = seller.sell_price#seller.sell_price
+                        matched_buy_price[buyer.agent_id] = trade_price #buyer.buy_price
+                        matched_sell_price[seller.agent_id] = trade_price #seller.sell_price
                         # trade_price = seller.sell_price
                         # matched_buy_price[buyer.agent_id] = buyer.buy_price
                         # matched_sell_price[seller.agent_id] = seller.sell_price
@@ -87,8 +87,8 @@ class MarketEnvironment:
                             break
 
             sellers = np.delete(sellers, sellers_to_remove)
-        print("TOTAL BUY VOLUME", np.sum(matched_buy_volume))
-        print("TOTAL SELL VOLUME", np.sum(matched_sell_volume))
+        #print("TOTAL BUY VOLUME", np.sum(matched_buy_volume))
+        #print("TOTAL SELL VOLUME", np.sum(matched_sell_volume))
         if np.sum(matched_sell_volume) > 0:
             mean_price = np.sum(np.array(matched_sell_price) * (np.array(matched_sell_volume) / np.sum(matched_sell_volume)))
         else:
@@ -96,7 +96,7 @@ class MarketEnvironment:
 
         # Update prices and trade info
         self.market_prices.append(mean_price)
-        matched_trades = np.array([matched_buy_volume, matched_sell_volume, matched_buy_price, matched_sell_price])
+        matched_trades = np.array([matched_buy_price, matched_sell_price, matched_buy_volume, matched_sell_volume])
         self.matched_trades = matched_trades
 
     def update_market(self) -> NoReturn:
