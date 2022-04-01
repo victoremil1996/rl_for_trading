@@ -28,7 +28,7 @@ class MarketEnvironment:
         matched_sell = [0] * len(self.agents)
         matched_buy_price = [0] * len(self.agents)
         matched_sell_price = [0] * len(self.agents)
-        mean_price = 0
+        mean_price, mean_buy, mean_sell = 0, 0, 0
         n_trades = 0
         buyers, sellers = np.array(self.agents).copy(), np.array(self.agents).copy()
         buyers = [x for _, x in sorted(zip(latencies, buyers))]  # Sorting buyers according to latency
@@ -47,6 +47,8 @@ class MarketEnvironment:
                         matched_sell_price[seller.agent_id] = trade_price
 
                         mean_price += trade_price
+                        mean_buy += buyer.buy_price
+                        mean_sell += seller.sell_price
                         n_trades += 1
                         sellers = np.delete(sellers, j)
                         break
@@ -55,12 +57,15 @@ class MarketEnvironment:
         
         if np.sum(matched_sell) > 0:
             mean_price /= n_trades
+            mean_buy /= n_trades
+            mean_sell /= n_trades
         else:
             mean_price = self.market_prices[-1]
 
         # Update prices and trade info
         self.market_prices.append(mean_price)
-
+        self.mean_buy_price = mean_buy
+        self.mean_sell_price = mean_sell
         matched_trades = np.array([matched_buy, matched_sell, matched_buy_price, matched_sell_price])
         self.matched_trades = matched_trades
 
@@ -68,7 +73,9 @@ class MarketEnvironment:
 
         self.state = {'execution_status': self.matched_trades,
                       'market_prices': self.market_prices,
-                      'fee': self.fee}
+                      'fee': self.fee,
+                      'mean_buy_price': self.mean_buy_price,
+                      'mean_sell_price': self.mean_sell_price}
 
     def step(self, agents: list) -> dict:
         self.agents = agents

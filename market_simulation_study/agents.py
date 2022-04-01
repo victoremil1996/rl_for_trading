@@ -109,7 +109,8 @@ class RandomAgent(Agent):
         :param state: market state information
         :return: buy price
         """
-        buy_price = self.random_agent_price * (1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[0]))
+        buy_price = self.random_agent_price * (1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1] - 0.02))
+        buy_price = np.maximum(buy_price, 0)
         return buy_price
 
     def calculate_sell_price(self, state: dict) -> float:
@@ -119,7 +120,8 @@ class RandomAgent(Agent):
         :param state: market state information
         :return: sell price
         """
-        sell_price = self.random_agent_price * (1 + np.random.uniform(low=self.noise_range[0], high=self.noise_range[0]))
+        sell_price = self.random_agent_price * (1 + np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
+        sell_price = np.maximum(sell_price, 0)
         return sell_price
 
     def calculate_profit_and_loss(self, state: dict) -> NoReturn:
