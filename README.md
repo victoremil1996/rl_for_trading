@@ -2,6 +2,6 @@
 Master thesis in reinforcement learning studying its applications in market making using agent based modelling and signal trading using market data.
 
 
-## RL in an agent based simulated market
+## Multi Agent Reinforcement Learning study on a fictive financial market
 
 ## RL for stock trading
