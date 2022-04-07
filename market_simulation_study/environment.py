@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import random
 
-
 class MarketEnvironment:
     def __init__(self,
                  state: dict):
@@ -135,9 +134,10 @@ class MarketEnvironment:
                         # Assigning trades to the agents
                         buy_trade = np.array([trade_price, trade_volume])
                         sell_trade = np.array([trade_price, -trade_volume])
-                        agent_one.all_trades = np.stack((agent_one.all_trades, buy_trade))
-                        agent_two.all_trades = np.stack((agent_two.all_trades, sell_trade))
-                        
+
+                        agent_one.all_trades = np.vstack((agent_one.all_trades, buy_trade))
+                        agent_two.all_trades = np.vstack((agent_two.all_trades, sell_trade))
+
                     if agent_one.sell_price <= agent_two.buy_price:
                         if agent_one.sell_volume >= agent_two.buy_volume:
                             trade_volume = agent_two.buy_volume
@@ -157,9 +157,10 @@ class MarketEnvironment:
 
                         # Assigning trades to the agents                        
                         buy_trade = np.array([trade_price, trade_volume])
-                        sell_trade = np.array([trade_price, -trade_volume])                        
-                        agent_one.all_trades = np.stack((agent_one.all_trades, sell_trade))
-                        agent_two.all_trades = np.stack((agent_two.all_trades, buy_trade))
+                        sell_trade = np.array([trade_price, -trade_volume])
+
+                        agent_one.all_trades = np.vstack((agent_one.all_trades, sell_trade))
+                        agent_two.all_trades = np.vstack((agent_two.all_trades, buy_trade))
                     
                     # ERROR CHECKING FOR VOLUME
                     if agent_one.sell_volume < 0 or agent_one.buy_volume < 0:

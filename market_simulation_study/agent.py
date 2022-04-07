@@ -495,7 +495,7 @@ class MarketMakerAgent(Agent):
         Constructor
         :param latency: latency when matching agents in the market environment
         """
-
+        self.agent_class = "MM"
         self.agent_id = agent_id
         self.delta = delta  # base latency
         self.gamma = gamma  # midprice sensitivity to position size
@@ -505,7 +505,7 @@ class MarketMakerAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades
+        self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = None
         self.sell_volume = None
         self.spread = None
@@ -657,7 +657,7 @@ class RLAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0,0])
+        self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.noise_range = noise_range
