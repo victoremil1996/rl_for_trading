@@ -1,6 +1,8 @@
 from typing import NoReturn, Tuple
+from numpy import ndarray
 import abc
 import numpy as np
+
 import random
 from collections import defaultdict
 
@@ -12,19 +14,20 @@ class Agent(abc.ABC):
     # @abc.abstractmethod
     # def __init__(self,
     #              agent_id: int = None,
-    #              latency: float = None,
+    #              delta: float = None,
     #              position: int = 0,
     #              pnl: float = None,
     #              buy_price: float = None,
     #              sell_price: float = None,
-    #              all_trades: list = []):
+    #              all_trades: np.ndarray = None):
     #     """
     #     Constructor
     #     :param latency: latency when matching agents in the market environment
     #     """
     #
     #     self.agent_id = agent_id
-    #     self.latency = latency
+    #      self.delta = delta
+    #     self.latency = delta
     #     self.position = position,
     #     self.pnl = pnl,
     #     self.buy_price = buy_price,
@@ -84,7 +87,7 @@ class Agent(abc.ABC):
     @abc.abstractmethod
     def update(self, state: dict) -> NoReturn:
         """
-        Updates agent-attributes when new state is provided
+        Updates agents ask and bid prices, and corresponding volumes, when new state is provided
 
         :param state:
         :return:
@@ -101,30 +104,31 @@ class RandomAgent(Agent):
 
     def __init__(self,
                  agent_id: int = None,
-                 latency: float = None,
+                 delta: float = None,
                  position: int = 0,
                  pnl: float = None,
                  buy_price: float = None,
                  sell_price: float = None,
-                 all_trades: list = None,
+                 all_trades: np.ndarray = None,
                  buy_volume: float = None,
                  sell_volume: float = None,
-                 noise_range: Tuple = [0.01, 0.1]):
+                 noise_range: Tuple = None):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
         """
         self.agent_class = "Random"
         self.agent_id = agent_id
-        self.latency = latency
+        self.delta = delta
+        self.latency = delta
         self.position = position
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else []
+        self.all_trades = all_trades if all_trades else np.array([0,  0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
-        self.noise_range = noise_range
+        self.noise_range = noise_range if noise_range else [0.01, 0.1]
         self.random_agent_price = None
 
     def calculate_buy_price(self, state: dict) -> float:
@@ -178,31 +182,21 @@ class RandomAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades)
-        unrealized_value = self.position * state["market_prices"][-1]
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1-state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
     def update(self, state: dict) -> NoReturn:
         """
-        Updates agent-attributes when new state is provided
+        Updates agents ask and bid prices, and corresponding volumes, when new state is provided
 
         :param state: market state information
         :return: NoReturn
         """
-        # Update trades (pays cash buys and receive for sells) and position
-        execution_status = state["execution_status"][:, self.agent_id]
-
-        if execution_status[0] >= 1:
-            buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
-            self.all_trades.append(buy_trade)
-            self.position += execution_status[2]
-
-        if execution_status[1] >= 1:
-            sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
-            self.all_trades.append(sell_trade)
-            self.position -= execution_status[3]
-
+        # Update latency
+        
+        self.latency = self.delta + np.random.uniform(1e-6, 1)
 
         # Update prices and volume
         self.random_agent_price = state["market_prices"][-1] + np.random.normal(loc = 0, scale = 2)
@@ -220,12 +214,12 @@ class InvestorAgent(Agent):
 
     def __init__(self,
                  agent_id: int = None,
-                 latency: float = None,
+                 delta: float = None,
                  position: int = 0,
                  pnl: float = None,
                  buy_price: float = None,
                  sell_price: float = None,
-                 all_trades: list = None,
+                 all_trades: np.ndarray = None,
                  buy_volume: float = 20,
                  sell_volume: float = 20,
                  intensity: float = None,
@@ -239,12 +233,13 @@ class InvestorAgent(Agent):
         """
         self.agent_class = "Investor"
         self.agent_id = agent_id
-        self.latency = latency
+        self.delta = delta
+        self.latency = delta
         self.position = position
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else []
+        self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.intensity = intensity
@@ -304,30 +299,20 @@ class InvestorAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades)
-        unrealized_value = self.position * state["market_prices"][-1]
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1-state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
     def update(self, state: dict) -> NoReturn:
         """
-        Updates agent-attributes when new state is provided
+        Updates agents ask and bid prices, and corresponding volumes, when new state is provided
 
         :param state: market state information
         :return: NoReturn
         """
-        # Update trades (pays cash buys and receive for sells) and position
-        execution_status = state["execution_status"][:, self.agent_id]
-
-        if execution_status[0] >= 1:
-            buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
-            self.all_trades.append(buy_trade)
-            self.position += execution_status[2]
-
-        if execution_status[1] >= 1:
-            sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
-            self.all_trades.append(sell_trade)
-            self.position -= execution_status[3]
+        # Update latency
+        self.latency = self.delta + np.random.uniform(1 + 1e-6, 2)
 
         # instantiate no prices
         self.buy_price = np.nan
@@ -346,7 +331,7 @@ class InvestorAgent(Agent):
 
         elif self.orders_in_queue > 0 and not self.is_buying:  # selling
             self.orders_in_queue -= 1
-            self.sell_price = self.calculate_sell_price()
+            self.sell_price = self.calculate_sell_price(state)
 
         elif will_buy and self.orders_in_queue == 0:  # starts to buy
             self.orders_in_queue = self.n_orders - 1
@@ -355,12 +340,13 @@ class InvestorAgent(Agent):
 
         elif will_sell and self.orders_in_queue == 0:  # starts to sell
             self.orders_in_queue = self.n_orders - 1
-            self.sell_price = self.calculate_sell_price()
+            self.sell_price = self.calculate_sell_price(state)
 
         # Update volume
 
         self.buy_volume = self.calculate_buy_volume(state)
         self.sell_volume = self.calculate_sell_volume(state)
+
 
 class TrendAgent(Agent):
     """
@@ -369,12 +355,12 @@ class TrendAgent(Agent):
 
     def __init__(self,
                  agent_id: int = None,
-                 latency: float = None,
+                 delta: float = None,
                  position: int = 0,
                  pnl: float = None,
                  buy_price: float = None,
                  sell_price: float = None,
-                 all_trades: list = None,
+                 all_trades: np.ndarray = None,
                  buy_volume: float = 0,
                  sell_volume: float = 0,
                  price_margin: float = 0.05,
@@ -387,12 +373,13 @@ class TrendAgent(Agent):
         """
         self.agent_class = "Trend"
         self.agent_id = agent_id
-        self.latency = latency
+        self.delta = delta
+        self.latency = delta
         self.position = position
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else []
+        self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.price_margin = price_margin
@@ -453,35 +440,25 @@ class TrendAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades)
-        unrealized_value = self.position * state["market_prices"][-1]
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
     def update(self, state: dict) -> NoReturn:
         """
-        Updates agent-attributes when new state is provided
+        Updates agents ask and bid prices, and corresponding volumes, when new state is provided
 
         :param state: market state information
         :return: NoReturn
         """
-        # Update trades (pays cash buys and receive for sells) and position
-        execution_status = state["execution_status"][:, self.agent_id]
-
-        if execution_status[0] >= 1:
-            buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
-            self.all_trades.append(buy_trade)
-            self.position += execution_status[2]
-
-        if execution_status[1] >= 1:
-            sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
-            self.all_trades.append(sell_trade)
-            self.position -= execution_status[3]
+        # update latency
+        self.latency = self.delta + np.random.uniform(1e-6, 1)
 
         # check trend direction and aim for strategic position
 
-        ma1 = np.average(state["market_prices"][-self.moving_average_one:])
-        ma2 = np.average(state["market_prices"][-self.moving_average_two:])
+        ma1 = np.average(state["market_prices"][- self.moving_average_one:])
+        ma2 = np.average(state["market_prices"][- self.moving_average_two:])
 
         trend = ma1 / ma2
 
@@ -499,6 +476,151 @@ class TrendAgent(Agent):
         elif trend < 1 and self.position < - self.const_position_size:
             pass
 
+class MarketMakerAgent(Agent):
+    """
+    Market making agent class
+    """
+
+    def __init__(self,
+                 agent_id: int = None,
+                 delta: float = None,
+                 gamma: float = None,
+                 gamma2: float = None,
+                 position: int = 0,
+                 pnl: float = None,
+                 buy_price: float = None,
+                 sell_price: float = None,
+                 all_trades: np.ndarray = None):
+        """
+        Constructor
+        :param latency: latency when matching agents in the market environment
+        """
+
+        self.agent_id = agent_id
+        self.delta = delta  # base latency
+        self.gamma = gamma  # midprice sensitivity to position size
+        self.gamma2 = gamma2  # spread sensitivity to local volatility
+        self.latency = delta
+        self.position = position
+        self.pnl = pnl
+        self.buy_price = buy_price
+        self.sell_price = sell_price
+        self.all_trades = all_trades
+        self.buy_volume = None
+        self.sell_volume = None
+        self.spread = None
+        self.mid_price = None
+
+    def calculate_volatility(self, state: dict, n_observations = 10) -> float:
+        """
+        calculates market price volatility
+
+        :param state:
+        :param n_observations: dats to calculate volatility for
+        :return:
+        """
+        vol = np.std(state["market_prices"][-n_observations:])
+        return vol
+
+    def calculate_spread(self, state: dict) -> float:
+        """
+        updates agents bid-ask spread
+
+        :param state:
+        :return:
+        """
+        vol = self.calculate_volatility(state)
+        spread = vol * self.gamma2
+        return spread
+
+    def calculate_mid_price(self, state: dict) -> float:
+        """
+        updates agents own midprice to place ask and bids from
+
+        :param state:
+        :return:
+        """
+
+        market_mid_price = state["market_prices"][-1]
+        market_leaning = self.gamma * self.position
+        mid_price = market_mid_price * (1 - market_leaning)
+        return mid_price
+
+    def calculate_buy_price(self) -> float:
+        """
+        Calculates buy price
+
+        :param state:
+        :return:
+        """
+        buy_price = self.mid_price - self.spread / 2 + np.random.normal(loc = 0, scale = 0.01)
+        return buy_price
+
+
+    def calculate_sell_price(self) -> float:
+        """
+        Calculates sell price
+
+        :param state:
+        :return:
+        """
+        sell_price = self.mid_price + self.spread / 2 + np.random.normal(loc=0, scale=0.01)
+        return sell_price
+
+    def calculate_buy_volume(self) -> float:
+        """
+        Calculates buy price
+
+        :param state:
+        :return:
+        """
+        buy_volume = 3
+        return buy_volume
+
+    def calculate_sell_volume(self) -> float:
+        """
+        Calculates sell price
+
+        :param state:
+        :return:
+        """
+        sell_volume = 3
+        return sell_volume
+
+    def calculate_profit_and_loss(self, state: dict) -> NoReturn:
+        """
+        Calculates profit and loss
+
+        :param state:
+        :return:
+        """
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+
+        self.pnl = realized_value + unrealized_value
+
+    def update(self, state: dict) -> NoReturn:
+        """
+        Updates agents ask and bid prices, and corresponding volumes, when new state is provided
+
+        :param state:
+        :return:
+        """
+        # Update latency
+        self.latency = self.delta / (1 + np.random.uniform(1e-6, 1))
+
+        # Update parameters to calculate prices
+        self.mid_price = self.calculate_mid_price(state)
+        self.spread = self.calculate_spread(state)
+
+        # Update volumes
+        self.buy_volume = self.calculate_buy_volume()
+        self.sell_volume = self.calculate_sell_volume()
+
+        # Update prices
+        self.buy_price = self.calculate_buy_price()
+        self.sell_price = self.calculate_sell_price()
+
 
 class RLAgent(Agent):
     """
@@ -507,12 +629,12 @@ class RLAgent(Agent):
 
     def __init__(self,
                  agent_id: int = None,
-                 latency: float = None,
+                 delta: float = None,
                  position: int = 0,
                  pnl: float = None,
                  buy_price: float = None,
                  sell_price: float = None,
-                 all_trades: list = None,
+                 all_trades: np.ndarray = None,
                  buy_volume: float = None,
                  sell_volume: float = None,
                  epsilon: float = 0.1,
@@ -529,12 +651,13 @@ class RLAgent(Agent):
         """
         self.agent_class = "RL"
         self.agent_id = agent_id
-        self.latency = latency
+        self.delta = delta
+        self.latency = delta
         self.position = position
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else []
+        self.all_trades = all_trades if all_trades else np.array([0,0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.noise_range = noise_range
@@ -546,7 +669,6 @@ class RLAgent(Agent):
         self.discount_factor = discount_factor
         self.action_size = action_size
         self.state_size = state_size
-
 
     def calculate_buy_price(self, state: dict) -> float:
         """
@@ -599,8 +721,8 @@ class RLAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades)
-        unrealized_value = self.position * state["market_prices"][-1]
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1-state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
@@ -670,7 +792,7 @@ class RLAgent(Agent):
             
     def update(self, state: dict) -> NoReturn:
         """
-        Updates agent-attributes when new state is provided
+        Updates agents ask and bid prices, and corresponding volumes, when new state is provided
 
         :param state: market state information
         :return: NoReturn
