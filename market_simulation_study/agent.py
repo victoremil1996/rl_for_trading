@@ -112,7 +112,7 @@ class RandomAgent(Agent):
                  all_trades: np.ndarray = None,
                  buy_volume: float = None,
                  sell_volume: float = None,
-                 noise_range: Tuple = [0.01, 0.1]):
+                 noise_range: Tuple = None):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
@@ -128,7 +128,7 @@ class RandomAgent(Agent):
         self.all_trades = all_trades if all_trades else np.array([0,  0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
-        self.noise_range = noise_range
+        self.noise_range = noise_range if noise_range else [0.01, 0.1]
         self.random_agent_price = None
 
     def calculate_buy_price(self, state: dict) -> float:
