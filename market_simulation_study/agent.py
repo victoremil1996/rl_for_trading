@@ -721,7 +721,7 @@ class RLAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        realized_value = np.sum(self.all_trades[:, 0] * - self.all_trades[:, 1])  # minus, (sell adds value).
         unrealized_value = self.position * state["market_prices"][-1] * (1-state["slippage"])
 
         self.pnl = realized_value + unrealized_value
