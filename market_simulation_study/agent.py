@@ -495,7 +495,7 @@ class MarketMakerAgent(Agent):
         Constructor
         :param latency: latency when matching agents in the market environment
         """
-
+        self.agent_class = "MM"
         self.agent_id = agent_id
         self.delta = delta  # base latency
         self.gamma = gamma  # midprice sensitivity to position size
@@ -505,7 +505,7 @@ class MarketMakerAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades
+        self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = None
         self.sell_volume = None
         self.spread = None
@@ -657,7 +657,7 @@ class RLAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0,0])
+        self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.noise_range = noise_range
@@ -721,7 +721,7 @@ class RLAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        realized_value = np.sum(self.all_trades[:, 0] * - self.all_trades[:, 1])  # minus, (sell adds value).
         unrealized_value = self.position * state["market_prices"][-1] * (1-state["slippage"])
 
         self.pnl = realized_value + unrealized_value
