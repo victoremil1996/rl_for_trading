@@ -8,7 +8,7 @@ class MarketEnvironment:
                  state: dict):
         self.state = state
         self.market_prices = state["market_prices"]
-        self.matched_trades = state["execution_status"]
+        self.matched_volumes = state["volume"]
         self.fee = state["fee"]
         self.slippage = state["slippage"]
         self.agents = None
@@ -63,7 +63,7 @@ class MarketEnvironment:
             # CHECK IF AGENT i CAN MAKE A BUY TRADE #
             #========================================#
             if any(self.agents[i+1].buy_order["buy_price"].values >= sell_order_book.iloc[:, 0].values):
-                print("price_match: ", self.agents[i+1].buy_order["buy_price"].values, sell_order_book.iloc[:, 0].values)
+                #print("price_match: ", self.agents[i+1].buy_order["buy_price"].values, sell_order_book.iloc[:, 0].values)
                 
                 matched_order_book = sell_order_book[sell_order_book["sell_price"].values <= self.agents[i+1].buy_order["buy_price"].values]
                 matched_order_book = matched_order_book.sort_values(["sell_price", "latency"], ascending = [True, True])
@@ -71,8 +71,9 @@ class MarketEnvironment:
                 for index, order in matched_order_book.iterrows():
                     if self.agents[i+1].buy_order["buy_volume"].values > order["sell_volume"]:
                         trade_volume = order["sell_volume"].copy()
+
                     else:
-                        trade_volume = self.agents[i+1].buy_order["buy_volume"].values.copy()
+                        trade_volume = self.agents[i+1].buy_order["buy_volume"].values[0].copy()
                     
                     self.agents[i+1].buy_order["buy_volume"] -= trade_volume
                     self.agents[int(order["agent_id"])].sell_order["sell_volume"] -= trade_volume
@@ -82,11 +83,18 @@ class MarketEnvironment:
                     self.agents[int(order["agent_id"])].position -= trade_volume
 
                     trade_price = order["sell_price"]
+                    #print("AAAA")
+                    #display(trade_price)
+                    #display(trade_volume)
                     buy_trade = np.array([trade_price, trade_volume])
                     sell_trade = np.array([trade_price, -trade_volume])
                     
                     self.agents[i+1].all_trades = np.vstack((self.agents[i+1].all_trades, sell_trade))
                     self.agents[int(order["agent_id"])].all_trades = np.vstack((self.agents[int(order["agent_id"])].all_trades, buy_trade))
+
+                    # UPDATE ALL MATCHED PRICES AND VOLUMES
+                    matched_price.append(trade_price)
+                    matched_volume.append(trade_volume)
             # SELL ORDER INTO SELL ORDER
             sell_order_book = sell_order_book[sell_order_book["sell_volume"] > 0]
             if self.agents[i+1].buy_order["buy_volume"].values > 0:
@@ -99,7 +107,7 @@ class MarketEnvironment:
             # CHECK IF AGENT i CAN MAKE A SELL TRADE #
             #========================================#
             if any(self.agents[i+1].sell_order["sell_price"].values <= buy_order_book.iloc[:, 0].values):
-                print("price_match: ", self.agents[i+1].sell_order["sell_price"].values, buy_order_book.iloc[:, 0].values)
+                #print("price_match: ", self.agents[i+1].sell_order["sell_price"].values, buy_order_book.iloc[:, 0].values)
                 
                 matched_order_book = buy_order_book[buy_order_book["buy_price"].values >= self.agents[i+1].sell_order["sell_price"].values]
                 matched_order_book = matched_order_book.sort_values(["buy_price", "latency"], ascending = [True, True])
@@ -108,7 +116,7 @@ class MarketEnvironment:
                     if self.agents[i+1].sell_order["sell_volume"].values > order["buy_volume"]:
                         trade_volume = order["buy_volume"].copy()
                     else:
-                        trade_volume = self.agents[i+1].sell_order["sell_volume"].values.copy()
+                        trade_volume = self.agents[i+1].sell_order["sell_volume"].values[0].copy()
                     
                     self.agents[i+1].sell_order["sell_volume"] -= trade_volume
                     self.agents[int(order["agent_id"])].buy_order["buy_volume"] -= trade_volume
@@ -123,6 +131,10 @@ class MarketEnvironment:
                     
                     self.agents[i+1].all_trades = np.vstack((self.agents[i+1].all_trades, sell_trade))
                     self.agents[int(order["agent_id"])].all_trades = np.vstack((self.agents[int(order["agent_id"])].all_trades, buy_trade))
+
+                    # UPDATE ALL MATCHED PRICES AND VOLUMES
+                    matched_price.append(trade_price)
+                    matched_volume.append(trade_volume)
                     # agents[sob["ID"]].all_trades.append([order["BP"], - trade_volume])
         
             # buy ORDER INTO buy ORDER
@@ -204,18 +216,22 @@ class MarketEnvironment:
         #     agents_second = np.delete(agents_second, agents_second_to_remove)
             
         if np.sum(matched_volume) > 0:
-            mean_price = np.sum(np.array(matched_price) * (np.array(matched_volume) / np.sum(matched_volume)))
+            #print("VOLUME", matched_volume)
+            #print("PRICES", matched_price)
+            #mean_price = np.sum(np.array(matched_price) * np.array(matched_volume)) / np.sum(matched_volume)
+            mean_price = np.average(matched_price, weights = matched_volume)
+            #print("MEAN PRICE", mean_price)
         else:
             mean_price = self.market_prices[-1]
 
         # Update prices and trade info
         self.market_prices.append(mean_price)
         #matched_trades = np.array([matched_buy_price, matched_sell_price, matched_buy_volume, matched_sell_volume])
-        self.matched_trades = np.array([total_market_volume])
+        self.matched_volumes = np.sum(matched_volume)
 
     def update_market(self) -> NoReturn:
 
-        self.state = {'execution_status': self.matched_trades, # Total volume
+        self.state = {'volume': self.matched_volumes, # Total volume
                       'market_prices': self.market_prices,
                       'fee': self.fee,
                       'mean_buy_price': self.mean_buy_price,
