@@ -1,4 +1,4 @@
-# Thesis by LJBCPH and victoremil1996
+# Thesis in reinforcement learning by LJBCPH and victoremil1996
 Master thesis in reinforcement learning studying its applications in market making using agent based modelling and signal trading using market data.
 
 
