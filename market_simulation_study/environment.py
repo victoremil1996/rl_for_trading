@@ -155,83 +155,10 @@ class MarketEnvironment:
             
             sell_order_book = pd.DataFrame(sell_order_book, index = sell_order_book.iloc[:, -1])
             buy_order_book = pd.DataFrame(buy_order_book, index = buy_order_book.iloc[:, -1])        
-        # for agent_one in agents_first:  # buy index
-        #     agents_second_to_remove = []
-        #     for j, agent_two in enumerate(agents_second):  # sell index
-        #         """ 
-        #         agent_one IS THE FIRST AGENT TO RUN THROUGH ALL OTHER AGENTS, FIRST CHECK IF THERE IS A BUY TRADE
-        #         THEN IF THERE IS A SELL TRADE ON
-        #         """
-        #         if agent_one.agent_id != agent_two.agent_id:
-        #             if agent_one.buy_price >= agent_two.sell_price:
-        #                 if agent_one.buy_volume >= agent_two.sell_volume:
-        #                     trade_volume = agent_two.sell_volume
-        #                 #elif agent_one.buy_volume <= agent_two.sell_volume:
-        #                 else:
-        #                     trade_volume = agent_one.buy_volume
-                        
-        #                 agent_one.buy_volume -= trade_volume
-        #                 agent_two.sell_volume -= trade_volume
-
-        #                 trade_price = agent_one.buy_price #(buyer.buy_price + seller.sell_price) / 2
-                        
-        #                 # Assigning trade/price to calculate means
-        #                 total_market_volume += trade_volume
-        #                 matched_price.append(trade_price) #buyer.buy_price
-        #                 matched_volume.append(trade_volume)
-                        
-        #                 # Assigning trades to the agents
-        #                 buy_trade = np.array([trade_price, trade_volume])
-        #                 sell_trade = np.array([trade_price, -trade_volume])
-
-        #                 agent_one.all_trades = np.vstack((agent_one.all_trades, buy_trade))
-        #                 agent_two.all_trades = np.vstack((agent_two.all_trades, sell_trade))
-
-        #             if agent_one.sell_price <= agent_two.buy_price:
-        #                 if agent_one.sell_volume >= agent_two.buy_volume:
-        #                     trade_volume = agent_two.buy_volume
-        #                 #elif agent_one.sell_volume <= agent_two.buy_volume:
-        #                 else:
-        #                     trade_volume = agent_one.sell_volume
-
-        #                 agent_one.sell_volume -= trade_volume
-        #                 agent_two.buy_volume -= trade_volume
-
-        #                 trade_price = agent_one.sell_price #(buyer.buy_price + seller.sell_price) / 2
-                        
-        #                 # Assigning trade/price to calculate means
-        #                 total_market_volume += trade_volume                        
-        #                 matched_price.append(trade_price)
-        #                 matched_volume.append(trade_volume)
-
-        #                 # Assigning trades to the agents                        
-        #                 buy_trade = np.array([trade_price, trade_volume])
-        #                 sell_trade = np.array([trade_price, -trade_volume])
-
-        #                 agent_one.all_trades = np.vstack((agent_one.all_trades, sell_trade))
-        #                 agent_two.all_trades = np.vstack((agent_two.all_trades, buy_trade))
-                    
-        #             # ERROR CHECKING FOR VOLUME
-        #             if agent_one.sell_volume < 0 or agent_one.buy_volume < 0:
-        #                 print("ERROR IN VOLUME FOR AGENT_ONE: sell_vol", agent_one.sell_volume, 
-        #                       " buy vol: ", agent_one.buy_volume)
-        #             if agent_two.sell_volume < 0 or agent_two.buy_volume < 0:
-        #                 print("ERROR IN VOLUME FOR AGENT_ONE: sell_vol", agent_two.sell_volume, 
-        #                       " buy vol: ", agent_two.buy_volume)
-                    
-        #             if agent_two.sell_volume == 0 and agent_two.buy_volume == 0:
-        #                 agents_second_to_remove.append(j)
-        #             if agent_one.buy_volume == 0 and agent_one.sell_volume == 0:
-        #                 break
-
-        #     agents_second = np.delete(agents_second, agents_second_to_remove)
+        
             
         if np.sum(matched_volume) > 0:
-            #print("VOLUME", matched_volume)
-            #print("PRICES", matched_price)
-            #mean_price = np.sum(np.array(matched_price) * np.array(matched_volume)) / np.sum(matched_volume)
             mean_price = np.average(matched_price, weights = matched_volume)
-            #print("MEAN PRICE", mean_price)
         else:
             mean_price = self.market_prices[-1]
 
