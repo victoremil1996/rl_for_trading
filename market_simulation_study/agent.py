@@ -4,8 +4,11 @@ import abc
 import numpy as np
 import pandas as pd
 import random
-from collections import defaultdict
 
+from keras.models import Sequential
+from keras.layers import Dense, SimpleRNN
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
 
 class Agent(abc.ABC):
     """
@@ -134,7 +137,7 @@ class RandomAgent(Agent):
         self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
-        self.noise_range = noise_range if noise_range else [0.01, 0.1]
+        self.noise_range = noise_range if noise_range else [0.01, 0.03]
         self.random_agent_price = None
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
                                       columns=["buy_price", "buy_volume", "latency", "agent_id"])
@@ -149,7 +152,7 @@ class RandomAgent(Agent):
         :return: buy price
         """
         buy_price = self.random_agent_price * (
-                    1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1] - 0.02))
+                    1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
         buy_price = np.maximum(buy_price, 0)
         return buy_price
 
@@ -294,7 +297,7 @@ class InvestorAgent(Agent):
         :return: sell price
         """
         sell_price = state["market_prices"][-1]
-        sell_price = np.maximum(sell_price, 0)
+        sell_price = np.maximum(sell_price, 0) * (1 - self.price_margin)
         return sell_price
 
     def calculate_buy_volume(self, state: dict) -> float:
@@ -701,7 +704,7 @@ class RLAgent(Agent):
                  sell_volume: float = None,
                  epsilon: float = 0.1,
                  state_size: int = 2,
-                 action_size: int = 3,
+                 action_size: int = 11,
                  lr: float = 0.1,
                  alpha: float = 0.6,
                  discount_factor: float = 1.0,
@@ -731,6 +734,7 @@ class RLAgent(Agent):
         self.discount_factor = discount_factor
         self.action_size = action_size
         self.state_size = state_size
+        self.rl_state = np.ndarray(shape = (0, action_size))
 
     def calculate_buy_price(self, state: dict) -> float:
         """
@@ -785,30 +789,39 @@ class RLAgent(Agent):
         :param state: market state information
         :return: total profit and loss
         """
-        realized_value = np.sum(self.all_trades[:, 0] * - self.all_trades[:, 1])  # minus, (sell adds value).
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
         unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
-    def create_state_space(self, state):
+    def create_state_space(self, state) -> NoReturn:
+        holding_diff = self.position * state["market_prices"][-1] * (1 - state["slippage"]) -(
+            self.position * state["market_prices"][-2] * (1 - state["slippage"]))
+        self.reward = (self.last_price - state["market_prices"][-1]) * self.position + (holding_diff)
         ma1 = np.average(state["market_prices"][-50:])
         ma2 = np.average(state["market_prices"][-200:])
         trend_feature = ma1 / ma2
-
         spread_feature = np.round(state["mean_buy_price"] - state["mean_sell_price"], 1)
-        # state = [trend_feature, spread_feature]
-        if trend_feature >= 1:  # and self.position < 20:
-            state = 0
-        # elif trend_feature < 1 :#and self.position > 20:
-        else:
-            state = 1
-        # elif trend_feature < 1 and self.position > -20:
-        #     state = 2
-        # elif trend_feature < 1 and self.position < -20:
-        #     state = 3
-        # else:
-        #     state = 4
-        return state
+        rl_state = np.array([ma1, ma2, trend_feature, spread_feature, state["market_prices"][-1],
+                             self.position, self.buy_volume, self.sell_volume, self.buy_price,
+                             self.sell_price, self.reward])
+        self.rl_state = np.vstack((self.rl_state, rl_state))
+        
+    def save_state_space(self) -> NoReturn:
+        pd.DataFrame(self.rl_state, columns = ['ma1', 'ma2', 'trend_feature',
+                                               'spread_feature', 'market_prices', 'position',
+                                               'buy_volume', 'sell_volume', 'buy_price',
+                                               'sell_price', 'reward']).to_feather('data/rl_state_space.feather')
+
+    def nn(self, hidden_units, dense_units, input_shape, activation):    
+        model = Sequential()
+        model.add(SimpleRNN(hidden_units, input_shape=input_shape, 
+                            activation=activation[0]))
+        model.add(Dense(units=dense_units, activation=activation[1]))
+        model.compile(loss='mean_squared_error', optimizer='adam')
+        return model
+ 
+
 
     def update_q_mat(self, state):
         #        self.calculate_profit_and_loss(state)
@@ -825,32 +838,33 @@ class RLAgent(Agent):
 
     def policy_function(self, state):
 
-        Action_probabilities = np.ones(self.action_size,
-                                       dtype=float) * self.epsilon / self.action_size
+        action_probabilities = np.ones(self.action_size,
+                                        dtype=float) * self.epsilon / self.action_size
 
         best_action = np.argmax(self.q_mat[state])
-        Action_probabilities[best_action] += (1.0 - self.epsilon)
-        return Action_probabilities
+        action_probabilities[best_action] += (1.0 - self.epsilon)
+        
+        return action_probabilities
 
-    def take_action(self, action, state) -> NoReturn:
-        if action == 0:
-            self.buy_price = state["market_prices"][-1]
-            self.buy_volume = 1
-            self.sell_price = 100000000
-            self.sell_volume = 0
-            # print("RL AGENT WILL BUY")
-        elif action == 1:
-            self.sell_price = state["market_prices"][-1]
-            self.sell_volume = 1
-            self.buy_price = 0.001
-            self.buy_volume = 0
-            # print("RL AGENT WILL SELL")
-        else:
-            self.sell_price = 10000000
-            self.sell_volume = 0
-            self.buy_price = 1
-            self.buy_volume = 0
-            # print("RL AGENT WILL NOTHING")
+    def take_action(self, state) -> NoReturn:
+        # Volume and price range 
+        vol_range_lower, vol_range_upper = 0, 10
+        price_range_lower, price_range_upper = state["market_prices"][-1] * 0.99, state["market_prices"][-1] * 1.01
+        
+        # Update volumes
+        self.buy_volume = random.randint(vol_range_lower, vol_range_upper)
+        self.sell_volume = random.randint(vol_range_lower, vol_range_upper)
+
+        # Update prices
+        self.buy_price = random.uniform(price_range_lower, price_range_upper)
+        self.sell_price = random.uniform(price_range_lower, price_range_upper)
+
+        self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
+                              columns=["buy_price", "buy_volume", "latency", "agent_id"],
+                              index=[self.agent_id])
+        self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
+                                       columns=["sell_price", "sell_volume", "latency", "agent_id"],
+                                       index=[self.agent_id])
 
     def update(self, state: dict) -> NoReturn:
         """
@@ -860,33 +874,15 @@ class RLAgent(Agent):
         :return: NoReturn
         """
         # Update trades (pays cash buys and receive for sells) and position
-        execution_status = state["execution_status"][:, self.agent_id]
 
-        if execution_status[0] >= 1:
-            buy_trade = - execution_status[0] * execution_status[2] - state["fee"] * execution_status[2]
-            self.all_trades.append(buy_trade)
-            self.position += execution_status[2]
-
-        if execution_status[1] >= 1:
-            sell_trade = execution_status[1] * execution_status[3] - state["fee"] * execution_status[3]
-            self.all_trades.append(sell_trade)
-            self.position -= execution_status[3]
-
-        if random.uniform(0, 1) < self.epsilon:
-            self.random_agent_price = state["market_prices"][-1] + np.random.normal(loc=0, scale=2)
-            self.buy_price = self.calculate_buy_price(state)
-            self.sell_price = self.calculate_sell_price(state)
-            self.buy_volume = self.calculate_buy_volume(state)
-            self.sell_volume = self.calculate_sell_volume(state)
-        else:
-            temp_state = state
-            self.last_price = state["market_prices"][-1]
-            state = self.create_state_space(state)
-            self.last_state = state
-            action_probabilities = self.policy_function(state)
-            action = np.random.choice(np.arange(
-                len(action_probabilities)),
-                p=action_probabilities)
-            self.last_action = action
-            self.take_action(action, temp_state)
-            self.action_probs = action_probabilities
+        temp_state = state
+        self.last_price = state["market_prices"][-1]
+        self.create_state_space(temp_state)
+        #self.last_state = state
+        #action_probabilities = self.policy_function(state)
+        #action = np.random.choice(np.arange(
+        #    len(action_probabilities)),
+        #    p=action_probabilities)
+        #self.last_action = action
+        self.take_action(state)
+#        self.action_probs = action_probabilities
