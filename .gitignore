@@ -1,3 +1,4 @@
 __pycache__/
 .ipynb_checkpoints
 *cpython-38.pyc
+*.pyc
