@@ -821,28 +821,6 @@ class RLAgent(Agent):
         model.compile(loss='mean_squared_error', optimizer='adam')
         return model
 
-    def update_q_mat(self, state):
-        #        self.calculate_profit_and_loss(state)
-        #        self.reward = self.pnl
-        self.reward = (self.last_price - state["market_prices"][-1]) * self.position
-        # print("REWARD: ", self.reward)
-        # print("POSITION: ", self.position)
-        # print("DIFF ", self.last_price - state["market_prices"][-1])
-        state = self.store_data(state)
-        best_next_action = np.argmax(self.q_mat[state])
-        td_target = self.reward + self.discount_factor * self.q_mat[state][best_next_action]
-        td_delta = td_target - self.q_mat[self.last_state][self.last_action]
-        self.q_mat[self.last_state][self.last_action] += self.alpha * td_delta
-
-    def policy_function(self, state):
-
-        action_probabilities = np.ones(self.action_size,
-                                        dtype=float) * self.epsilon / self.action_size
-
-        best_action = np.argmax(self.q_mat[state])
-        action_probabilities[best_action] += (1.0 - self.epsilon)
-        
-        return action_probabilities
 
     def take_action(self, state) -> NoReturn:
         # Volume and price range 
