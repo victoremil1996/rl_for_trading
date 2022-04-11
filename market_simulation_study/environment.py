@@ -20,7 +20,13 @@ class MarketEnvironment:
         #que_indices = range(len(self.agents))
         
         return latencies
-    
+
+    def get_agent_ids(self):
+        agent_ids = [0] * len(self.agents)
+        for i in range(len(self.agents)):
+            agent_ids[i] = self.agents[i].agent_id
+        return  agent_ids
+
     def calc_mean_order_prices(self) -> NoReturn:
         sell_prices, buy_prices = [0] * len(self.agents), [0] * len(self.agents)
         sell_volumes, buy_volumes = [0] * len(self.agents), [0] * len(self.agents)
@@ -47,12 +53,9 @@ class MarketEnvironment:
         self.calc_mean_order_prices()
         matched_volume = []
         matched_price = []
-        mean_price = 0
-        agents_first, agents_second = np.array(self.agents), np.array(self.agents)
-        agents_first = [x for _, x in sorted(zip(latencies, agents_first))]  # Sorting buyers according to latency
-        agents_second = [x for _, x in sorted(zip(latencies, agents_second))]  # Sorting sellers according to latency
-        total_market_volume = 0
-        
+        # Sort agents corresponding to latencies
+        self.agents = [x for _, x in sorted(zip(latencies, self.agents))]  # Sorting buyers according to latency
+
         sell_order_book = self.agents[0].sell_order
         buy_order_book = self.agents[0].buy_order
         sell_order_book = pd.DataFrame(sell_order_book, index = sell_order_book.iloc[:, -1])
@@ -166,6 +169,11 @@ class MarketEnvironment:
         self.market_prices.append(mean_price)
         #matched_trades = np.array([matched_buy_price, matched_sell_price, matched_buy_volume, matched_sell_volume])
         self.matched_volumes = np.sum(matched_volume)
+
+        # Rearrange agents corresponding to agent ids
+
+        agent_ids = self.get_agent_ids(self)
+        self.agents = [x for _, x in sorted(zip(agent_ids, self.agents))]  # Sorting buyers according to latency
 
     def update_market(self) -> NoReturn:
 
