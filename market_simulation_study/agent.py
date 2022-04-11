@@ -734,7 +734,7 @@ class RLAgent(Agent):
         self.discount_factor = discount_factor
         self.action_size = action_size
         self.state_size = state_size
-        self.rl_state = np.ndarray(shape = (0, action_size))
+        self.data = np.ndarray(shape = (0, action_size))
 
     def calculate_buy_price(self, state: dict) -> float:
         """
@@ -794,7 +794,7 @@ class RLAgent(Agent):
 
         self.pnl = realized_value + unrealized_value
 
-    def create_state_space(self, state) -> NoReturn:
+    def store_data(self, state) -> NoReturn:
         holding_diff = self.position * state["market_prices"][-1] * (1 - state["slippage"]) -(
             self.position * state["market_prices"][-2] * (1 - state["slippage"]))
         self.reward = (self.last_price - state["market_prices"][-1]) * self.position + (holding_diff)
@@ -802,16 +802,16 @@ class RLAgent(Agent):
         ma2 = np.average(state["market_prices"][-200:])
         trend_feature = ma1 / ma2
         spread_feature = np.round(state["mean_buy_price"] - state["mean_sell_price"], 1)
-        rl_state = np.array([ma1, ma2, trend_feature, spread_feature, state["market_prices"][-1],
+        data = np.array([ma1, ma2, trend_feature, spread_feature, state["market_prices"][-1],
                              self.position, self.buy_volume, self.sell_volume, self.buy_price,
                              self.sell_price, self.reward])
-        self.rl_state = np.vstack((self.rl_state, rl_state))
+        self.data = np.vstack((self.data, data))
         
-    def save_state_space(self) -> NoReturn:
-        pd.DataFrame(self.rl_state, columns = ['ma1', 'ma2', 'trend_feature',
+    def data_to_feather(self) -> NoReturn:
+        pd.DataFrame(self.data, columns = ['ma1', 'ma2', 'trend_feature',
                                                'spread_feature', 'market_prices', 'position',
                                                'buy_volume', 'sell_volume', 'buy_price',
-                                               'sell_price', 'reward']).to_feather('data/rl_state_space.feather')
+                                               'sell_price', 'reward']).to_feather('data/data.feather')
 
     def nn(self, hidden_units, dense_units, input_shape, activation):    
         model = Sequential()
@@ -820,31 +820,7 @@ class RLAgent(Agent):
         model.add(Dense(units=dense_units, activation=activation[1]))
         model.compile(loss='mean_squared_error', optimizer='adam')
         return model
- 
 
-
-    def update_q_mat(self, state):
-        #        self.calculate_profit_and_loss(state)
-        #        self.reward = self.pnl
-        self.reward = (self.last_price - state["market_prices"][-1]) * self.position
-        # print("REWARD: ", self.reward)
-        # print("POSITION: ", self.position)
-        # print("DIFF ", self.last_price - state["market_prices"][-1])
-        state = self.create_state_space(state)
-        best_next_action = np.argmax(self.q_mat[state])
-        td_target = self.reward + self.discount_factor * self.q_mat[state][best_next_action]
-        td_delta = td_target - self.q_mat[self.last_state][self.last_action]
-        self.q_mat[self.last_state][self.last_action] += self.alpha * td_delta
-
-    def policy_function(self, state):
-
-        action_probabilities = np.ones(self.action_size,
-                                        dtype=float) * self.epsilon / self.action_size
-
-        best_action = np.argmax(self.q_mat[state])
-        action_probabilities[best_action] += (1.0 - self.epsilon)
-        
-        return action_probabilities
 
     def take_action(self, state) -> NoReturn:
         # Volume and price range 
@@ -877,7 +853,7 @@ class RLAgent(Agent):
 
         temp_state = state
         self.last_price = state["market_prices"][-1]
-        self.create_state_space(temp_state)
+        self.store_data(temp_state)
         #self.last_state = state
         #action_probabilities = self.policy_function(state)
         #action = np.random.choice(np.arange(
