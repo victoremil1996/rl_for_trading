@@ -1,5 +1,6 @@
 import os
 import sys
+from copy import deepcopy
 
 from typing import NoReturn, Tuple
 from numpy import ndarray
@@ -22,7 +23,6 @@ from torch import nn
 from torch.distributions import Uniform
 from torch.distributions import Normal
 from torch.nn import functional as f
-
 
 
 class Agent(abc.ABC):
@@ -1116,5 +1116,40 @@ class GaussianPolicyNetwork(nn.Module):
 
 
 class ActorCriticAgent:
-    def __init__(self, policy, qf, ):
-        print("jeg er noob")
+    def __init__(self,
+                 policy: nn.Module,
+                 qf: nn.Module,
+                 qf_optimiser: th.optim.optimizer.Optimizer,
+                 policy_optimiser: th.optim.optimizer.Optimizer,
+                 discount_factor: float = None,
+                 env=None,
+                 max_evaluation_episode_length: int = 200,
+                 batch_size = 50,
+                 max_memory_size = 10000,
+                 eval_deterministic = True,
+                 training_on_policy = False,
+                 vf = None,
+                 vf_optimiser = None):
+
+        self.policy = policy
+        self.qf = qf
+        self.vf = vf
+        self.target_vf = deepcopy(vf)
+        self.tau = 1e-2
+        self.vf_optimiser = vf_optimiser
+        self.qf_optimiser = qf_optimiser
+        self.policy_optimiser = policy_optimiser
+        self.env = env
+        self.discount = discount
+        self.batch_size = batch_size
+        self.max_evaluation_episode_length = max_evaluation_episode_length
+        self.num_evaluation_episodes = num_evaluation_episodes
+        self.num_training_episode_steps = num_training_episode_steps
+        self.training_on_policy = training_on_policy
+        self.buffer = Buffer(buffer_size=buffer_size)
+        self.loss = nn.MSELoss()
+        self.pretraining_policy = Uniform(high=th.Tensor([policy.max_action]), low=th.Tensor([policy.min_action]))
+        self.eval_deterministic = eval_deterministic
+
+        self.R_av = None
+        self.R_tot = 0
