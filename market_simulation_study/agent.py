@@ -9,10 +9,11 @@ import pandas as pd
 import random
 # Tensorflow
 from keras.models import Sequential
-from keras.layers import Dense, SimpleRNN
-
+from keras.layers import Dense, SimpleRNN, LSTM
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+import math
 
 # Pytorch
 import torch as th
@@ -722,11 +723,13 @@ class RLAgent(Agent):
                  sell_volume: float = None,
                  epsilon: float = 0.1,
                  state_size: int = 2,
-                 action_size: int = 11,
                  lr: float = 0.1,
                  alpha: float = 0.6,
-                 discount_factor: float = 1.0,
-                 noise_range: Tuple = [0.01, 0.1]):
+                 noise_range: Tuple = [0.01, 0.1],
+                 gamma: float = 0.99,
+                 nn_parameters: dict = {"n_layers": 10, "n_units": 20, "n_features": 11, "batch_size": 1,
+                                        "dense_units": 1, "n_timepoints": 16, "n_epochs": 20},
+                 function_approximator: str = "rnn"):
 
         """
         Constructor
@@ -746,13 +749,14 @@ class RLAgent(Agent):
         self.noise_range = noise_range
         self.random_agent_price = None
         self.epsilon = epsilon
-        self.q_mat = np.zeros((state_size, action_size))
         self.lr = lr
         self.alpha = alpha
-        self.discount_factor = discount_factor
-        self.action_size = action_size
         self.state_size = state_size
-        self.data = np.ndarray(shape = (0, action_size))
+        self.gamma = gamma
+        self.nn_parameters = nn_parameters
+        self.data = np.ndarray(shape = (0, self.nn_parameters["n_features"]))
+        if function_approximator == "rnn":
+            self.model = self.rnn_model()
 
     def calculate_buy_price(self, state: dict) -> float:
         """
@@ -812,15 +816,27 @@ class RLAgent(Agent):
 
         self.pnl = realized_value + unrealized_value
 
-    def store_data(self, state) -> NoReturn:
-        holding_diff = self.position * state["market_prices"][-1] * (1 - state["slippage"]) -(
-            self.position * state["market_prices"][-2] * (1 - state["slippage"]))
-        self.reward = (self.last_price - state["market_prices"][-1]) * self.position + (holding_diff)
+    def create_features(self, state):
         ma1 = np.average(state["market_prices"][-50:])
         ma2 = np.average(state["market_prices"][-200:])
         trend_feature = ma1 / ma2
         spread_feature = np.round(state["mean_buy_price"] - state["mean_sell_price"], 1)
-        data = np.array([ma1, ma2, trend_feature, spread_feature, state["market_prices"][-1],
+        feature_list = [ma1, ma2, trend_feature, spread_feature]
+        return feature_list
+
+    def store_data(self, state) -> NoReturn:
+        last_pnl = self.pnl
+        self.calculate_profit_and_loss(state)
+        self.reward = self.pnl - last_pnl
+        #ma1 = np.average(state["market_prices"][-50:])
+        #ma2 = np.average(state["market_prices"][-200:])
+        #trend_feature = ma1 / ma2
+        #spread_feature = np.round(state["mean_buy_price"] - state["mean_sell_price"], 1)
+        features = self.create_features(self, state)
+        # data = np.array([ma1, ma2, trend_feature, spread_feature, state["market_prices"][-1],
+        #                      self.position, self.buy_volume, self.sell_volume, self.buy_price,
+        #                      self.sell_price, self.reward])
+        data = np.array([features[0], features[1], features[2], features[3], state["market_prices"][-1],
                              self.position, self.buy_volume, self.sell_volume, self.buy_price,
                              self.sell_price, self.reward])
         self.data = np.vstack((self.data, data))
@@ -831,7 +847,61 @@ class RLAgent(Agent):
                                                'buy_volume', 'sell_volume', 'buy_price',
                                                'sell_price', 'reward']).to_feather('data/data.feather')
 
-    def nn(self, hidden_units, dense_units, input_shape, activation):    
+    def scale_and_reshape(self, data):
+        feature_vector = data.iloc[:, :-1]
+        col_names = feature_vector.columns
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        feature_vector = pd.DataFrame(scaler.fit_transform(feature_vector), columns = col_names)
+
+        # RESHAPING
+        rows_x = len(feature_vector[:,0])
+        x = feature_vector[range(self.nn_parameters["n_timepoints"] * rows_x), :]
+        feature_vector_reshaped = np.reshape(x, (rows_x, self.nn_parameters["n_timepoints"], self.nn_parameters["n_features"]))
+        return feature_vector_reshaped
+
+    def train_model(self):
+
+        data = pd.DataFrame(self.data, columns = ['ma1', 'ma2', 'trend_feature',
+                                        'spread_feature', 'market_prices', 'position',
+                                        'buy_volume', 'sell_volume', 'buy_price',
+                                        'sell_price', 'reward'])
+        reward_vector = data.iloc[:, -1].values
+
+        disc_reward = np.zeros_like(reward_vector)
+        cum_reward = 0
+        for i in reversed(range(len(reward_vector))):
+            cum_reward = cum_reward * self.gamma + reward_vector[i]
+            disc_reward[i] = cum_reward
+
+        feature_vector_reshaped = self.scale_and_reshape(data)
+        # TRAIN
+        self.model.fit(feature_vector_reshaped, disc_reward, epochs=self.nn_parameters["n_epochs"], batch_size=1, verbose=2)
+
+
+    def rnn_model(self):
+        model = Sequential()
+        #     model.add(SimpleRNN(hidden_units, input_shape=input_shape,
+        #                         activation=activation[0]))
+        model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True, return_sequences=True))
+        model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True))
+        model.add(Dense(units=self.nn_parameters["dense_units"], activation="linear"))
+        model.compile(loss='mean_squared_error', optimizer='adam')
+        return model
+
+    def predict_state(self, state):
+        state_feature_vector = self.create_features(state)
+        data = pd.DataFrame(state_feature_vector)
+        state_feature_vector_reshaped = self.scale_and_reshape(data)
+        prediction = self.model.predict(state_feature_vector_reshaped, batch_size = 1)
+        return prediction
+
+    def take_action(self):
+        grid = []
+        predictions = []
+        for i in grid:
+            predictions.append(self.predict_state())
+
+    def nn(self, hidden_units, dense_units, input_shape, activation):
         model = Sequential()
         model.add(SimpleRNN(hidden_units, input_shape=input_shape, 
                             activation=activation[0]))
@@ -872,14 +942,8 @@ class RLAgent(Agent):
         temp_state = state
         self.last_price = state["market_prices"][-1]
         self.store_data(temp_state)
-        #self.last_state = state
-        #action_probabilities = self.policy_function(state)
-        #action = np.random.choice(np.arange(
-        #    len(action_probabilities)),
-        #    p=action_probabilities)
-        #self.last_action = action
         self.take_action(state)
-#        self.action_probs = action_probabilities
+
 
 
 class Memory:
