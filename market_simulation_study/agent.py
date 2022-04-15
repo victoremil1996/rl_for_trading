@@ -945,7 +945,6 @@ class RLAgent(Agent):
         self.take_action(state)
 
 
-
 class Memory:
     """
     Memory class to perform experience replay
@@ -1124,12 +1123,14 @@ class ActorCriticAgent:
                  discount_factor: float = None,
                  env=None,
                  max_evaluation_episode_length: int = 200,
-                 batch_size = 50,
-                 max_memory_size = 10000,
-                 eval_deterministic = True,
-                 training_on_policy = False,
-                 vf = None,
-                 vf_optimiser = None):
+                 batch_size=50,
+                 max_memory_size=10000,
+                 num_evaluation_episodes=5,
+                 num_training_episode_steps=1000,
+                 eval_deterministic=True,
+                 training_on_policy=False,
+                 vf=None,
+                 vf_optimiser=None):
 
         self.policy = policy
         self.qf = qf
@@ -1140,16 +1141,19 @@ class ActorCriticAgent:
         self.qf_optimiser = qf_optimiser
         self.policy_optimiser = policy_optimiser
         self.env = env
-        self.discount = discount
+        self.discount_factor = discount_factor
         self.batch_size = batch_size
         self.max_evaluation_episode_length = max_evaluation_episode_length
         self.num_evaluation_episodes = num_evaluation_episodes
         self.num_training_episode_steps = num_training_episode_steps
         self.training_on_policy = training_on_policy
-        self.buffer = Buffer(buffer_size=buffer_size)
-        self.loss = nn.MSELoss()
+        self.memory = Memory(max_size=max_memory_size)
+
         self.pretraining_policy = Uniform(high=th.Tensor([policy.max_action]), low=th.Tensor([policy.min_action]))
         self.eval_deterministic = eval_deterministic
 
-        self.R_av = None
-        self.R_tot = 0
+        #self.loss = nn.MSELoss()
+        #self.R_av = None
+        #self.R_tot = 0
+
+        def
