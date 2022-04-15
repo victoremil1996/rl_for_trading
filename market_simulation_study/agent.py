@@ -1116,8 +1116,8 @@ class GaussianPolicyNetwork(nn.Module):
 
 class ActorCriticAgent:
     def __init__(self,
-                 policy: nn.Module,
-                 qf: nn.Module,
+                 policy: GaussianPolicyNetwork,
+                 qf: ActionValueNetwork,
                  qf_optimiser: th.optim.optimizer.Optimizer,
                  policy_optimiser: th.optim.optimizer.Optimizer,
                  discount_factor: float = None,
@@ -1129,8 +1129,8 @@ class ActorCriticAgent:
                  num_training_episode_steps=1000,
                  eval_deterministic=True,
                  training_on_policy=False,
-                 vf=None,
-                 vf_optimiser=None):
+                 vf: nn.Module=None,
+                 vf_optimiser: th.optim.optimizer.Optimizer=None):
 
         self.policy = policy
         self.qf = qf
@@ -1156,4 +1156,73 @@ class ActorCriticAgent:
         #self.R_av = None
         #self.R_tot = 0
 
-        def
+    def score_gradient_descent(self) -> NoReturn:
+        """
+        Takes a gradient descent step and updates parameters in function approximators
+        """
+        if self.training_on_policy:
+            batch = self.memory.draw_batch(self.batch_size)
+            self.memory.clear()
+        else:
+            batch = self.memory.draw_batch(self.batch_size)
+        states = batch['states']
+        actions = batch['actions']
+        rewards = batch['rewards']
+        next_states = batch['next_states']
+        terminals = batch['terminals']
+
+        """
+        Calculate 
+        """
+        state_values = self.vf(states)
+        state_actions = th.cat((states, actions), 1)  # qf needs both state and actions as input
+        q_values = self.qf(state_actions)
+        next_state_values = self.target_vf(next_states)
+
+        new_actions, log_pis = self.policy.get_action_and_log_prob(states)  # get new_actions from current parameters
+        new_state_actions = th.cat((states, new_actions), 1)  # old state from buffer plus new_actions
+        new_q_values = self.qf(new_state_actions)  # get value of chosen action
+
+        """
+        State Value Losses - Critic
+        """
+        state_value_target = new_q_values  # The state should represent the value taking the best action
+        vf_loss = (state_value_target.deatch() - state_values).pow(2).mean()
+
+        """
+        Action Value Losses - Critic
+        use temporal difference and approx TD error, see Silver slide set 7 (slide 326).
+        """
+        q_targets = rewards + self.discount_factor * (1 - terminals) * next_state_values
+        qf_loss = (q_targets.detach() - q_values).pow(2).mean()
+
+        """
+        Policy Losses - Actor  
+        NOT COMPLETELY SURE ABOUT THE LOSS FUNCTION (MAYBE IT SHOULD BE MULTIPLIED BY MINUS 1)
+        """
+        advantage = new_q_values - state_values
+        policy_loss = (log_pis * (log_pis - advantage.detach())).mean()
+
+        """
+        Parameter updates using gradient descent
+        """
+        self.qf_optimiser.zero_grad()
+        qf_loss.backward()
+        self.qf_optimiser.step()
+
+        self.vf_optimiser.zero_grad()
+        vf_loss.backward()
+        self.vf_optimiser.step()
+
+        self.policy_optimiser.zero_grad()
+        policy_loss.backward()
+        self.policy_optimiser.step()
+
+        self.soft_update()
+
+    def soft_update(self):
+        """value function parameters"""
+        for target_param, param in zip(self.target_vf.parameters(), self.vf.parameters()):
+            target_param.data.copy_(
+                target_param.data * (1.0 - self.tau) + param.data * self.tau
+            )
