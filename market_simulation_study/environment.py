@@ -172,7 +172,7 @@ class MarketEnvironment:
 
         # Rearrange agents corresponding to agent ids
 
-        agent_ids = self.get_agent_ids(self)
+        agent_ids = self.get_agent_ids()
         self.agents = [x for _, x in sorted(zip(agent_ids, self.agents))]  # Sorting buyers according to latency
 
     def update_market(self) -> NoReturn:

@@ -18,6 +18,7 @@ import math
 
 # Pytorch
 import torch as th
+from torch.optim import Optimizer
 from torch.optim import Adam
 from torch import nn
 from torch.distributions import Uniform
@@ -1118,8 +1119,8 @@ class ActorCriticAgent:
     def __init__(self,
                  policy: GaussianPolicyNetwork,
                  qf: ActionValueNetwork,
-                 qf_optimiser: th.optim.optimizer.Optimizer,
-                 policy_optimiser: th.optim.optimizer.Optimizer,
+                 qf_optimiser: Optimizer,
+                 policy_optimiser: Optimizer,
                  discount_factor: float = None,
                  env=None,
                  max_evaluation_episode_length: int = 200,
@@ -1130,7 +1131,30 @@ class ActorCriticAgent:
                  eval_deterministic=True,
                  training_on_policy=False,
                  vf: nn.Module=None,
-                 vf_optimiser: th.optim.optimizer.Optimizer=None):
+                 vf_optimiser: Optimizer=None,
+                 agent_id = 0,
+                 delta=1,
+                 init_state = None):
+
+        self.agent_class = "ActorCritic"
+        self.agent_id = agent_id
+        self.delta = delta  # base latency
+        self.latency = delta
+        self.position = 0
+        self.pnl = None
+        self.buy_price = None
+        self.sell_price = None
+        self.all_trades = np.array([0, 0])
+        self.buy_volume = None
+        self.sell_volume = None
+        self.spread = None
+        self.mid_price = None
+        self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
+                                      columns=["buy_price", "buy_volume", "latency", "agent_id"],
+                                      index=[self.agent_id])
+        self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
+                                       columns=["sell_price", "sell_volume", "latency", "agent_id"],
+                                       index=[self.agent_id])
 
         self.policy = policy
         self.qf = qf
@@ -1148,9 +1172,11 @@ class ActorCriticAgent:
         self.num_training_episode_steps = num_training_episode_steps
         self.training_on_policy = training_on_policy
         self.memory = Memory(max_size=max_memory_size)
+        self.state = init_state
 
         self.pretraining_policy = Uniform(high=th.Tensor([policy.max_action]), low=th.Tensor([policy.min_action]))
         self.eval_deterministic = eval_deterministic
+
 
         #self.loss = nn.MSELoss()
         #self.R_av = None
@@ -1223,6 +1249,10 @@ class ActorCriticAgent:
     def soft_update(self):
         """value function parameters"""
         for target_param, param in zip(self.target_vf.parameters(), self.vf.parameters()):
-            target_param.data.copy_(
-                target_param.data * (1.0 - self.tau) + param.data * self.tau
-            )
+            target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
+
+    def memory_to_feather(self) -> NoReturn:
+        pd.DataFrame(self.memory.full_memory()).to_feather('data/data.feather')
+
+    def update(self):
+        state = self.state
