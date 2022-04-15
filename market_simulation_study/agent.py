@@ -1,14 +1,28 @@
+import os
+import sys
+
 from typing import NoReturn, Tuple
 from numpy import ndarray
 import abc
 import numpy as np
 import pandas as pd
 import random
-
+# Tensorflow
 from keras.models import Sequential
 from keras.layers import Dense, SimpleRNN
+
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
+
+# Pytorch
+import torch as th
+from torch.optim import Adam
+from torch import nn
+from torch.distributions import Uniform
+from torch.distributions import Normal
+from torch.nn import functional as f
+
+
 
 class Agent(abc.ABC):
     """
@@ -687,6 +701,10 @@ class MarketMakerAgent(Agent):
                                        index=[self.agent_id])
 
 
+##################################################
+# Reinforcement learning Agents and Helper-classes
+##################################################
+
 class RLAgent(Agent):
     """
     Agent which makes noisy buy and sell prices around market_prices
@@ -862,3 +880,177 @@ class RLAgent(Agent):
         #self.last_action = action
         self.take_action(state)
 #        self.action_probs = action_probabilities
+
+
+class Memory:
+    """
+    Memory class to perform experience replay
+    """
+    def __init__(self, max_size: int, input_shape, dim_actions: int):
+
+        self.max_size = max_size
+        # Clear
+        self.states = []
+        self.counter = 0
+        self.actions = []
+        self.rewards = []
+        self.next_states = []
+        self.terminal = []
+
+    def clear(self):
+        """ Clear all memory"""
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.next_states = []
+        self.terminal = []
+
+    def clear_earliest_entry(self):
+        """Clear first remembered experiance"""
+        self.states = self.states[1:]
+        self.actions = self.actions[1:]
+        self.rewards = self.rewards[1:]
+        self.next_states = self.next_states[1:]
+        self.terminals = self.terminals[1:]
+
+    def add_transition(self, state, action, reward, next_state, terminal):
+        """ Add new state, action and reward to memory """
+
+        if len(self.states) == self.memory_size:
+            self.clear_earliser_entry(self)
+
+        self.states.append(state)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        self.next_states.append(next_state)
+        self.terminals.append(terminal)
+
+    def draw_batch(self, batch_size: int = 50):
+        """draws a random sample batch from memory"""
+        combined = list(zip(self.states,
+                            self.actions,
+                            self.rewards,
+                            self.next_states,
+                            self.terminals))
+
+        random.shuffle(combined)
+
+        if batch_size is not None:
+            combined = combined[:batch_size]
+
+        states, actions, rewards, next_states, terminals = zip(*combined)
+
+        batch = {'states': th.stack(states),
+                 'actions': th.stack(actions),
+                 'rewards': th.stack(rewards),
+                 'next_states': th.stack(next_states),
+                 'terminals': th.stack(terminals)}
+
+        return batch
+
+    def full_memory(self):
+        """ returns full memory"""
+        batch = {'states': th.stack(self.states),
+                 'actions': th.stack(self.actions),
+                 'rewards': th.stack(self.rewards),
+                 'next_states': th.stack(self.next_states),
+                 'terminals': th.stack(self.terminals)}
+        return batch
+
+
+class ActionValueNetwork(nn.Module):
+    """Critic Neural Network approximating the action-value function"""
+
+    def __init__(self, learning_rate: float, input_dims, fc1_dims: int = 256, fc2_dims: int = 256):
+        super(ActionValueNetwork, self).__init__()
+
+        self.input_dims = input_dims
+        self.fc1 = nn.Linear(self.input_dims, fc1_dims)  # Fully connected layer 1 / Hidden layer 1
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)  # Hidden layer 2
+        self.fc3 = nn.linear(fc2_dims, 1)  # Action value
+
+    def forward(self, activation):
+        """feed through the network"""
+        activation = f.relu(self.fc1(activation))
+        activation = f.relu(self.fc2(activation))
+        activation = self.fc3(activation)
+
+        return activation
+
+
+class GaussianPolicyNetwork(nn.Module):
+
+    def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
+                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function = None):
+        super(GaussianPolicyNetwork, self).__init__()
+
+        self.input_dims = input_dims
+        self.action_dims = action_dims
+        self.soft_clamp_function = soft_clamp_function
+        self.max_action_value = max_action_value
+        self.min_action_value = min_action_value
+        self.max_log_sigma = 2  # to cutoff variance estimates
+        self.min_log_sigma = -20  # to cutoff variance estimates
+
+        self.fc1 = nn.Linear(self.input_dims, fc1_dims)
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
+        self.mu_layer = nn.Linear(fc2_dims, self.output_size)
+        self.log_sigma_layer = nn.Linear(fc2_dims, self.output_size)
+
+    def forward(self, activation):
+        """feed through the network and output mu and sigma vectors"""
+        activation = f.relu(self.fc1(activation))
+        activation = f.relu(self.fc2(activation))
+        mu = self.mu_layer(activation)
+        log_sigma = self.log_sigma_layer(activation)
+        log_sigma = log_sigma.clamp(min=self.min_log_sigma, max=self.max_log_sigma)
+        sigma = th.exp(log_sigma)
+
+        return mu, sigma
+
+    def get_action(self, state, eval_deterministic=False):
+
+        mu, sigma = self.forward(state)
+        if eval_deterministic:
+            action = mu
+        else:
+            gauss_dist = Normal(loc=mu, scale=sigma)
+            action = gauss_dist.sample()
+            action.detach()
+
+        action = self.max_action * th.tanh(action / self.max_action)
+        action[-2:] = action[-2:].int()
+
+        return action
+
+    def get_action_and_log_prob(self, state):
+
+        mu, sigma = self.forward(self, state)  # Initialize activation with state
+        gauss_dist = Normal(loc=mu, scale=sigma)
+        action = gauss_dist.sample()
+        action.detach()
+        action = action.clamp(min=self.max_action, max=self.max_action)
+        action[-2:] = action[-2:].int()
+        log_prob = gauss_dist.log_prob(action)
+
+        return action, log_prob
+
+    def random_sample(self, state):
+
+        mu, sigma = self.forward(state)
+        loc = th.zeros(size=[state.shape[0], 1], dtype=th.float32)
+        scale = loc + 1.0
+        unit_gauss = Normal(loc=loc, scale=scale)
+        gauss = Normal(loc=mu, scale=sigma)
+        epsilon = unit_gauss.sample()
+        action = mu + sigma * epsilon
+        action = action.requires_grad_()
+        action = self.max_action * th.tanh(action / self.max_action)
+        log_prob = gauss.log_prob(action.data)
+
+        return action, log_prob
+
+
+class ActorCriticAgent:
+    def __init__(self, policy, qf, ):
+        print("jeg er noob")
