@@ -17,7 +17,7 @@ from sklearn.model_selection import train_test_split
 import math
 
 # Pytorch
-import torch as th
+import torch
 from torch.optim import Optimizer
 from torch.optim import Adam
 from torch import nn
@@ -950,7 +950,7 @@ class Memory:
     """
     Memory class to perform experience replay
     """
-    def __init__(self, max_size: int, input_shape, dim_actions: int):
+    def __init__(self, max_size: int):
 
         self.max_size = max_size
         # Clear
@@ -1004,34 +1004,34 @@ class Memory:
 
         states, actions, rewards, next_states, terminals = zip(*combined)
 
-        batch = {'states': th.stack(states),
-                 'actions': th.stack(actions),
-                 'rewards': th.stack(rewards),
-                 'next_states': th.stack(next_states),
-                 'terminals': th.stack(terminals)}
+        batch = {'states': torch.stack(states),
+                 'actions': torch.stack(actions),
+                 'rewards': torch.stack(rewards),
+                 'next_states': torch.stack(next_states),
+                 'terminals': torch.stack(terminals)}
 
         return batch
 
     def full_memory(self):
         """ returns full memory"""
-        batch = {'states': th.stack(self.states),
-                 'actions': th.stack(self.actions),
-                 'rewards': th.stack(self.rewards),
-                 'next_states': th.stack(self.next_states),
-                 'terminals': th.stack(self.terminals)}
+        batch = {'states': torch.stack(self.states),
+                 'actions': torch.stack(self.actions),
+                 'rewards': torch.stack(self.rewards),
+                 'next_states': torch.stack(self.next_states),
+                 'terminals': torch.stack(self.terminals)}
         return batch
 
 
 class ActionValueNetwork(nn.Module):
     """Critic Neural Network approximating the action-value function"""
 
-    def __init__(self, learning_rate: float, input_dims, fc1_dims: int = 256, fc2_dims: int = 256):
+    def __init__(self, input_dims, fc1_dims: int = 256, fc2_dims: int = 256):
         super(ActionValueNetwork, self).__init__()
 
         self.input_dims = input_dims
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)  # Fully connected layer 1 / Hidden layer 1
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)  # Hidden layer 2
-        self.fc3 = nn.linear(fc2_dims, 1)  # Action value
+        self.fc3 = nn.Linear(fc2_dims, 1)  # Action value
 
     def forward(self, activation):
         """feed through the network"""
@@ -1058,8 +1058,8 @@ class GaussianPolicyNetwork(nn.Module):
 
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)
-        self.mu_layer = nn.Linear(fc2_dims, self.output_size)
-        self.log_sigma_layer = nn.Linear(fc2_dims, self.output_size)
+        self.mu_layer = nn.Linear(fc2_dims, self.action_dims)
+        self.log_sigma_layer = nn.Linear(fc2_dims, self.action_dims)
 
     def forward(self, activation):
         """feed through the network and output mu and sigma vectors"""
@@ -1068,7 +1068,7 @@ class GaussianPolicyNetwork(nn.Module):
         mu = self.mu_layer(activation)
         log_sigma = self.log_sigma_layer(activation)
         log_sigma = log_sigma.clamp(min=self.min_log_sigma, max=self.max_log_sigma)
-        sigma = th.exp(log_sigma)
+        sigma = torch.exp(log_sigma)
 
         return mu, sigma
 
@@ -1082,7 +1082,7 @@ class GaussianPolicyNetwork(nn.Module):
             action = gauss_dist.sample()
             action.detach()
 
-        action = self.max_action * th.tanh(action / self.max_action)
+        action = self.max_action * torch.tanh(action / self.max_action)
         action[-2:] = action[-2:].int()
 
         return action
@@ -1102,14 +1102,14 @@ class GaussianPolicyNetwork(nn.Module):
     def random_sample(self, state):
 
         mu, sigma = self.forward(state)
-        loc = th.zeros(size=[state.shape[0], 1], dtype=th.float32)
+        loc = torch.zeros(size=[state.shape[0], 1], dtype=torch.float32)
         scale = loc + 1.0
         unit_gauss = Normal(loc=loc, scale=scale)
         gauss = Normal(loc=mu, scale=sigma)
         epsilon = unit_gauss.sample()
         action = mu + sigma * epsilon
         action = action.requires_grad_()
-        action = self.max_action * th.tanh(action / self.max_action)
+        action = self.max_action * torch.tanh(action / self.max_action)
         log_prob = gauss.log_prob(action.data)
 
         return action, log_prob
@@ -1132,9 +1132,9 @@ class ActorCriticAgent:
                  training_on_policy=False,
                  vf: nn.Module=None,
                  vf_optimiser: Optimizer=None,
-                 agent_id = 0,
+                 agent_id=0,
                  delta=1,
-                 init_state = None):
+                 init_state=None):
 
         self.agent_class = "ActorCritic"
         self.agent_id = agent_id
@@ -1172,9 +1172,9 @@ class ActorCriticAgent:
         self.num_training_episode_steps = num_training_episode_steps
         self.training_on_policy = training_on_policy
         self.memory = Memory(max_size=max_memory_size)
-        self.state = init_state
+        self.state = self.get_state_features(init_state)
 
-        self.pretraining_policy = Uniform(high=th.Tensor([policy.max_action]), low=th.Tensor([policy.min_action]))
+        self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action]), low=torch.Tensor([policy.min_action]))
         self.eval_deterministic = eval_deterministic
 
 
@@ -1201,12 +1201,12 @@ class ActorCriticAgent:
         Calculate 
         """
         state_values = self.vf(states)
-        state_actions = th.cat((states, actions), 1)  # qf needs both state and actions as input
+        state_actions = torch.cat((states, actions), 1)  # qf needs both state and actions as input
         q_values = self.qf(state_actions)
         next_state_values = self.target_vf(next_states)
 
         new_actions, log_pis = self.policy.get_action_and_log_prob(states)  # get new_actions from current parameters
-        new_state_actions = th.cat((states, new_actions), 1)  # old state from buffer plus new_actions
+        new_state_actions = torch.cat((states, new_actions), 1)  # old state from buffer plus new_actions
         new_q_values = self.qf(new_state_actions)  # get value of chosen action
 
         """
@@ -1254,5 +1254,72 @@ class ActorCriticAgent:
     def memory_to_feather(self) -> NoReturn:
         pd.DataFrame(self.memory.full_memory()).to_feather('data/data.feather')
 
-    def update(self):
-        state = self.state
+    def calculate_profit_and_loss(self, state: dict) -> NoReturn:
+        """
+        Calculates profit and loss
+
+        :param state: market state information
+        :return: total profit and loss
+        """
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+
+        self.pnl = realized_value + unrealized_value
+
+    def get_state_features(self, state: dict, n_returns = 3):
+        """
+        Extract features from market state information
+
+        :param state: market state
+        :return: state features
+        """
+        features = []
+        returns = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
+        features.append(returns.tolist())
+        features.append([state["volume"]])
+        features.append(state["mean_buy_price"])
+        features.append(state["mean_sell_price"])
+
+        return features
+
+    def update(self, state: dict):
+        """
+        Updates RL model and its prices and volumes
+        """
+        state_feautures = self.state_features
+        action = self.policy.get_action(state_feautures)
+
+        pnl = self.pnl
+        self.calculate_profit_and_loss(state=state)
+        new_pnl = self.pnl
+        reward = torch.Tensor([new_pnl - pnl])
+        next_state_features = torch.Tensor([self.get_state_features(state)])
+        terminal = 0
+
+        self.memory.add_transition(state=state_feautures,
+                                   action=action,
+                                   reward=reward,
+                                   next_state=next_state_features,
+                                   terminal=terminal)
+        state_features = next_state_features
+        if terminal:
+            raise NotImplementedError("No terminal state definition")
+
+        new_action = self.policy.get_action(state_features)
+
+        self.buy_price = new_action[0].numpy()
+        self.sell_price = new_action[1].numpy()
+        self.buy_volume = new_action[2].numpy()
+        self.sell_volume = new_action[3].numpy()
+
+        self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
+                                      columns=["buy_price", "buy_volume", "latency", "agent_id"],
+                                      index=[self.agent_id])
+        self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
+                                       columns=["sell_price", "sell_volume", "latency", "agent_id"],
+                                       index=[self.agent_id])
+
+        self.latency = self.delta / (1 + np.random.uniform(1e-6, 1))
+
+
+
