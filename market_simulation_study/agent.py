@@ -1,16 +1,30 @@
+import os
+import sys
+from copy import deepcopy
+
 from typing import NoReturn, Tuple
 from numpy import ndarray
 import abc
 import numpy as np
 import pandas as pd
 import random
-
+# Tensorflow
 from keras.models import Sequential
 from keras.layers import Dense, SimpleRNN, LSTM
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 import math
+
+# Pytorch
+import torch
+from torch.optim import Optimizer
+from torch.optim import Adam
+from torch import nn
+from torch.distributions import Uniform
+from torch.distributions import Normal
+from torch.nn import functional as f
+
 
 class Agent(abc.ABC):
     """
@@ -689,6 +703,10 @@ class MarketMakerAgent(Agent):
                                        index=[self.agent_id])
 
 
+##################################################
+# Reinforcement learning Agents and Helper-classes
+##################################################
+
 class RLAgent(Agent):
     """
     Agent which makes noisy buy and sell prices around market_prices
@@ -829,19 +847,19 @@ class RLAgent(Agent):
                                                'spread_feature', 'market_prices', 'position',
                                                'buy_volume', 'sell_volume', 'buy_price',
                                                'sell_price', 'reward']).to_feather('data/data.feather')
-    
+
     def scale_and_reshape(self, data):
         feature_vector = data.iloc[:, :-1]
         col_names = feature_vector.columns
         scaler = MinMaxScaler(feature_range=(0, 1))
         feature_vector = pd.DataFrame(scaler.fit_transform(feature_vector), columns = col_names)
-        
+
         # RESHAPING
         rows_x = len(feature_vector[:,0])
         x = feature_vector[range(self.nn_parameters["n_timepoints"] * rows_x), :]
         feature_vector_reshaped = np.reshape(x, (rows_x, self.nn_parameters["n_timepoints"], self.nn_parameters["n_features"]))
         return feature_vector_reshaped
-        
+
     def train_model(self):
 
         data = pd.DataFrame(self.data, columns = ['ma1', 'ma2', 'trend_feature',
@@ -849,13 +867,13 @@ class RLAgent(Agent):
                                         'buy_volume', 'sell_volume', 'buy_price',
                                         'sell_price', 'reward'])
         reward_vector = data.iloc[:, -1].values
-        
+
         disc_reward = np.zeros_like(reward_vector)
         cum_reward = 0
         for i in reversed(range(len(reward_vector))):
             cum_reward = cum_reward * self.gamma + reward_vector[i]
             disc_reward[i] = cum_reward
-            
+
         feature_vector_reshaped = self.scale_and_reshape(data)
         # TRAIN
         self.model.fit(feature_vector_reshaped, disc_reward, epochs=self.nn_parameters["n_epochs"], batch_size=1, verbose=2)
@@ -863,27 +881,27 @@ class RLAgent(Agent):
 
     def rnn_model(self):
         model = Sequential()
-        #     model.add(SimpleRNN(hidden_units, input_shape=input_shape, 
+        #     model.add(SimpleRNN(hidden_units, input_shape=input_shape,
         #                         activation=activation[0]))
         model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True, return_sequences=True))
         model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True))
         model.add(Dense(units=self.nn_parameters["dense_units"], activation="linear"))
         model.compile(loss='mean_squared_error', optimizer='adam')
         return model
-   
+
     def predict_state(self, state):
         state_feature_vector = self.create_features(state)
         data = pd.DataFrame(state_feature_vector)
         state_feature_vector_reshaped = self.scale_and_reshape(data)
         prediction = self.model.predict(state_feature_vector_reshaped, batch_size = 1)
         return prediction
-    
+
     def take_action(self):
         grid = []
         predictions = []
         for i in grid:
             predictions.append(self.predict_state())
-    
+
     def nn(self, hidden_units, dense_units, input_shape, activation):
         model = Sequential()
         model.add(SimpleRNN(hidden_units, input_shape=input_shape, 
@@ -926,4 +944,418 @@ class RLAgent(Agent):
         self.last_price = state["market_prices"][-1]
         self.store_data(temp_state)
         self.take_action(state)
+
+
+class Memory:
+    """
+    Memory class to perform experience replay
+    """
+    def __init__(self, max_size: int):
+
+        self.max_size = max_size
+        # Clear
+        self.states = []
+        self.counter = 0
+        self.actions = []
+        self.rewards = []
+        self.next_states = []
+        self.terminals = []
+
+    def clear(self):
+        """ Clear all memory"""
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.next_states = []
+        self.terminals = []
+
+    def clear_earliest_entry(self):
+        """Clear first remembered experiance"""
+        self.states = self.states[1:]
+        self.actions = self.actions[1:]
+        self.rewards = self.rewards[1:]
+        self.next_states = self.next_states[1:]
+        self.terminals = self.terminals[1:]
+
+    def add_transition(self, state, action, reward, next_state, terminal):
+        """ Add new state, action and reward to memory """
+
+        if len(self.states) == self.max_size:
+            self.clear_earliest_entry()
+
+        self.states.append(state)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        self.next_states.append(next_state)
+        self.terminals.append(terminal)
+
+    def draw_batch(self, batch_size: int = 50):
+        """draws a random sample batch from memory"""
+        combined = list(zip(self.states,
+                            self.actions,
+                            self.rewards,
+                            self.next_states,
+                            self.terminals))
+
+        random.shuffle(combined)
+
+        if batch_size is not None:
+            combined = combined[:batch_size]
+
+        states, actions, rewards, next_states, terminals = zip(*combined)
+
+        batch = {'states': torch.stack(states).float(),
+                 'actions': torch.stack(actions).float(),
+                 'rewards': torch.stack(rewards).float(),
+                 'next_states': torch.stack(next_states).float(),
+                 'terminals': torch.stack(terminals)}
+
+        return batch
+
+    def full_memory(self):
+        """ returns full memory"""
+        batch = {'states': torch.stack(self.states).float(),
+                 'actions': torch.stack(self.actions).float(),
+                 'rewards': torch.stack(self.rewards).float(),
+                 'next_states': torch.stack(self.next_states).float(),
+                 'terminals': torch.stack(self.terminals)}
+        return batch
+
+
+class ActionValueNetwork(nn.Module):
+    """Critic Neural Network approximating the action-value function"""
+
+    def __init__(self, input_dims, fc1_dims: int = 256, fc2_dims: int = 256):
+        super(ActionValueNetwork, self).__init__()
+
+        self.input_dims = input_dims
+        self.fc1 = nn.Linear(self.input_dims, fc1_dims)  # Fully connected layer 1 / Hidden layer 1
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)  # Hidden layer 2
+        self.fc3 = nn.Linear(fc2_dims, 1)  # Action value
+
+    def forward(self, activation):
+        """feed through the network"""
+        activation = f.relu(self.fc1(activation))
+        activation = f.relu(self.fc2(activation))
+        activation = self.fc3(activation)
+
+        return activation
+
+
+class GaussianPolicyNetwork(nn.Module):
+
+    def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
+                 max_action_value_two: int = 0, min_action_value_two: int = 15,
+                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None):
+        super(GaussianPolicyNetwork, self).__init__()
+
+        self.input_dims = input_dims
+        self.action_dims = action_dims
+        self.soft_clamp_function = soft_clamp_function
+        self.max_action_value = max_action_value
+        self.min_action_value = min_action_value
+        self.max_action_value_two = max_action_value_two
+        self.min_action_value_two = min_action_value_two
+        self.max_log_sigma = 2  # to cutoff variance estimates
+        self.min_log_sigma = -20  # to cutoff variance estimates
+
+        self.fc1 = nn.Linear(self.input_dims, fc1_dims)
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
+        self.mu_layer = nn.Linear(fc2_dims, self.action_dims)
+        self.log_sigma_layer = nn.Linear(fc2_dims, self.action_dims)
+
+    def forward(self, activation):
+        """feed through the network and output mu and sigma vectors"""
+        activation = activation.float()
+        activation = f.relu(self.fc1(activation))
+        activation = f.relu(self.fc2(activation))
+        mu = self.mu_layer(activation)
+        log_sigma = self.log_sigma_layer(activation)
+        log_sigma = log_sigma.clamp(min=self.min_log_sigma, max=self.max_log_sigma)
+        sigma = torch.exp(log_sigma)
+
+        return mu, sigma
+
+    def get_action(self, state, eval_deterministic=False):
+
+        mu, sigma = self.forward(state)
+        if eval_deterministic:
+            action = mu
+        else:
+            gauss_dist = Normal(loc=mu, scale=sigma)
+            action = gauss_dist.sample()
+            action.detach()
+
+        # action = self.max_action_value * torch.tanh(action / self.max_action_value)
+        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
+        action[-2:] = action[-2:].int()
+
+        return action
+
+    def get_action_and_log_prob(self, state):
+
+        mu, sigma = self.forward(state)  # Initialize activation with state
+        gauss_dist = Normal(loc=mu, scale=sigma)
+        action = gauss_dist.sample()
+        action.detach()
+        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
+        action[-2:] = action[-2:].int()
+        log_prob = gauss_dist.log_prob(action)
+
+        return action, log_prob
+
+    def random_sample(self, state):
+
+        mu, sigma = self.forward(state)
+        loc = torch.zeros(size=[state.shape[0], 1], dtype=torch.float32)
+        scale = loc + 1.0
+        unit_gauss = Normal(loc=loc, scale=scale)
+        gauss = Normal(loc=mu, scale=sigma)
+        epsilon = unit_gauss.sample()
+        action = mu + sigma * epsilon
+        action = action.requires_grad_()
+        action = self.max_action_value * torch.tanh(action / self.max_action_value)
+        log_prob = gauss.log_prob(action.data)
+
+        return action, log_prob
+
+
+class ActorCriticAgent:
+    def __init__(self,
+                 policy: GaussianPolicyNetwork,
+                 qf: ActionValueNetwork,
+                 qf_optimiser: Optimizer,
+                 policy_optimiser: Optimizer,
+                 discount_factor: float = None,
+                 env=None,
+                 max_evaluation_episode_length: int = 200,
+                 batch_size=50,
+                 max_memory_size=10000,
+                 num_evaluation_episodes=5,
+                 num_training_episode_steps=1000,
+                 eval_deterministic=True,
+                 training_on_policy=False,
+                 vf: nn.Module=None,
+                 vf_optimiser: Optimizer=None,
+                 agent_id=0,
+                 delta=1,
+                 init_state=None):
+
+        self.agent_class = "ActorCritic"
+        self.agent_id = agent_id
+        self.delta = delta  # base latency
+        self.latency = delta
+        self.position = 0
+        self.pnl = 0
+        self.buy_price = None
+        self.sell_price = None
+        self.all_trades = np.array([[0, 0]])
+        self.buy_volume = None
+        self.sell_volume = None
+        self.spread = None
+        self.mid_price = None
+        self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
+                                      columns=["buy_price", "buy_volume", "latency", "agent_id"],
+                                      index=[self.agent_id])
+        self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
+                                       columns=["sell_price", "sell_volume", "latency", "agent_id"],
+                                       index=[self.agent_id])
+
+        self.policy = policy
+        self.qf = qf
+        self.vf = vf
+        self.target_vf = deepcopy(vf)
+        self.tau = 1e-2
+        self.vf_optimiser = vf_optimiser
+        self.qf_optimiser = qf_optimiser
+        self.policy_optimiser = policy_optimiser
+        self.env = env
+        self.discount_factor = discount_factor
+        self.batch_size = batch_size
+        self.max_evaluation_episode_length = max_evaluation_episode_length
+        self.num_evaluation_episodes = num_evaluation_episodes
+        self.num_training_episode_steps = num_training_episode_steps
+        self.training_on_policy = training_on_policy
+        self.memory = Memory(max_size=max_memory_size)
+        self.state_features = self.get_state_features(init_state)
+
+        #self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action_value]), low=torch.Tensor([policy.min_action_value]))
+        self.eval_deterministic = eval_deterministic
+
+
+        #self.loss = nn.MSELoss()
+        #self.R_av = None
+        #self.R_tot = 0
+    def reset(self):
+        """
+        Resets all attributes related to the market, pnl ect.
+        """
+        self.position = 0
+        self.pnl = 0
+        self.buy_price = None
+        self.sell_price = None
+        self.all_trades = np.array([[0, 0]])
+        self.buy_volume = None
+        self.sell_volume = None
+
+    def score_gradient_descent(self) -> NoReturn:
+        """
+        Takes a gradient descent step and updates parameters in function approximators
+        """
+        if self.training_on_policy:
+            batch = self.memory.draw_batch(self.batch_size)
+            self.memory.clear()
+        else:
+            batch = self.memory.draw_batch(self.batch_size)
+        states = batch['states']
+        actions = batch['actions']
+        rewards = batch['rewards']
+        next_states = batch['next_states']
+        terminals = batch['terminals']
+
+        """
+        Calculate 
+        """
+        state_values = self.vf(states)
+        state_actions = torch.cat((states, actions), 1)  # qf needs both state and actions as input
+        q_values = self.qf(state_actions)
+        next_state_values = self.target_vf(next_states)
+
+        new_actions, log_pis = self.policy.get_action_and_log_prob(states)  # get new_actions from current parameters
+        new_state_actions = torch.cat((states, new_actions), 1)  # old state from buffer plus new_actions
+        new_q_values = self.qf(new_state_actions)  # get value of chosen action
+
+        """
+        State Value Losses - Critic
+        """
+        state_value_target = new_q_values  # The state should represent the value taking the best action
+        vf_loss = (state_value_target.detach() - state_values).pow(2).mean()
+
+        """
+        Action Value Losses - Critic
+        use temporal difference and approx TD error, see Silver slide set 7 (slide 326).
+        """
+        q_targets = rewards + self.discount_factor * (1 - terminals) * next_state_values
+        qf_loss = (q_targets.detach() - q_values).pow(2).mean()
+
+        """
+        Policy Losses - Actor  
+        NOT COMPLETELY SURE ABOUT THE LOSS FUNCTION (MAYBE IT SHOULD BE MULTIPLIED BY MINUS 1)
+        """
+        advantage = new_q_values - state_values
+        policy_loss = (log_pis * (log_pis - advantage.detach())).mean()
+
+        """
+        Parameter updates using gradient descent
+        """
+        self.qf_optimiser.zero_grad()
+        qf_loss.backward()
+        self.qf_optimiser.step()
+
+        self.vf_optimiser.zero_grad()
+        vf_loss.backward()
+        self.vf_optimiser.step()
+
+        self.policy_optimiser.zero_grad()
+        policy_loss.backward()
+        self.policy_optimiser.step()
+
+        self.soft_update()
+
+    def soft_update(self):
+        """value function parameters"""
+        for target_param, param in zip(self.target_vf.parameters(), self.vf.parameters()):
+            target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
+
+    def memory_to_feather(self) -> NoReturn:
+        """Save memory to feather"""
+        pd.DataFrame(self.memory.full_memory()).to_feather('data/data.feather')
+
+    def calculate_profit_and_loss(self, state: dict) -> NoReturn:
+        """
+        Calculates profit and loss
+
+        :param state: market state information
+        :return: total profit and loss
+        """
+        realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
+        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+
+        self.pnl = realized_value + unrealized_value
+
+    def get_state_features(self, state: dict, n_returns = 3):
+        """
+        Extract features from market state information
+
+        :param state: market state
+        :return: state features
+        """
+        features = []
+        #returns = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
+        for i in range(n_returns):
+            features.append(state["market_prices"][-i])
+            #features.append(returns.tolist()[i])
+        features.append(state["volume"])
+        features.append(state["mean_buy_price"])
+        features.append(state["mean_sell_price"])
+        features.append(self.position)
+
+        return torch.tensor(features)
+
+    def update(self, state: dict, exploration_mode=False):
+        """
+        Updates RL model and its prices and volumes
+        """
+        state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
+        if exploration_mode:
+            action = torch.tensor([state_features[0] - abs(np.random.normal()),  # buy_price
+                                   state_features[0] + abs(np.random.normal()),  # sell_price
+                                   random.randint(0, 10),  # buy_volume
+                                   random.randint(0, 10)   # sell_volume
+                                   ])
+        else:
+            action = self.policy.get_action(state_features)
+
+        pnl = self.pnl
+        self.calculate_profit_and_loss(state=state)
+        new_pnl = self.pnl
+        reward = torch.tensor([new_pnl - pnl])
+        next_state_features = self.get_state_features(state)
+        terminal = torch.tensor(0)
+
+        self.memory.add_transition(state=state_features,
+                                   action=action,
+                                   reward=reward,
+                                   next_state=next_state_features,
+                                   terminal=terminal)
+        self.state_features = next_state_features
+        if terminal:
+            raise NotImplementedError("No terminal state definition")
+
+        if exploration_mode:
+            new_action = torch.tensor([self.state_features[0] - abs(np.random.normal()),  # buy_price
+                                       self.state_features[0] + abs(np.random.normal()),  # sell_price
+                                       random.randint(0, 10),  # buy_volume
+                                       random.randint(0, 10)   # sell_volume
+                                       ])
+        else:
+            new_action = self.policy.get_action(self.state_features)
+
+        self.buy_price = new_action[0].numpy()
+        self.sell_price = new_action[1].numpy()
+        self.buy_volume = new_action[2].numpy()
+        self.sell_volume = new_action[3].numpy()
+
+        self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
+                                      columns=["buy_price", "buy_volume", "latency", "agent_id"],
+                                      index=[self.agent_id])
+        self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
+                                       columns=["sell_price", "sell_volume", "latency", "agent_id"],
+                                       index=[self.agent_id])
+
+        self.latency = self.delta / (1 + np.random.uniform(1e-6, 1))
+
+
 

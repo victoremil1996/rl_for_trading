@@ -6,8 +6,8 @@ import random
 class MarketEnvironment:
     def __init__(self,
                  state: dict):
-        self.state = state
-        self.market_prices = state["market_prices"]
+        self.state = state.copy()
+        self.market_prices = state["market_prices"].copy()
         self.matched_volumes = state["volume"]
         self.fee = state["fee"]
         self.slippage = state["slippage"]
@@ -172,7 +172,7 @@ class MarketEnvironment:
 
         # Rearrange agents corresponding to agent ids
 
-        agent_ids = self.get_agent_ids(self)
+        agent_ids = self.get_agent_ids()
         self.agents = [x for _, x in sorted(zip(agent_ids, self.agents))]  # Sorting buyers according to latency
 
     def update_market(self) -> NoReturn:
