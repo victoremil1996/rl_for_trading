@@ -1188,6 +1188,17 @@ class ActorCriticAgent:
         #self.loss = nn.MSELoss()
         #self.R_av = None
         #self.R_tot = 0
+    def reset(self):
+        """
+        Resets all attributes related to the market, pnl ect.
+        """
+        self.position = 0
+        self.pnl = 0
+        self.buy_price = None
+        self.sell_price = None
+        self.all_trades = np.array([[0, 0]])
+        self.buy_volume = None
+        self.sell_volume = None
 
     def score_gradient_descent(self) -> NoReturn:
         """
@@ -1299,8 +1310,8 @@ class ActorCriticAgent:
         """
         state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
         if exploration_mode:
-            action = torch.tensor([state['market_prices'][-1] + np.random.normal(),  # buy_price
-                                   state['market_prices'][-1] + np.random.normal(),  # sell_price
+            action = torch.tensor([state_features[0] - abs(np.random.normal()),  # buy_price
+                                   state_features[0] + abs(np.random.normal()),  # sell_price
                                    random.randint(0, 10),  # buy_volume
                                    random.randint(0, 10)   # sell_volume
                                    ])
@@ -1323,7 +1334,14 @@ class ActorCriticAgent:
         if terminal:
             raise NotImplementedError("No terminal state definition")
 
-        new_action = self.policy.get_action(self.state_features)
+        if exploration_mode:
+            new_action = torch.tensor([self.state_features[0] - abs(np.random.normal()),  # buy_price
+                                       self.state_features[0] + abs(np.random.normal()),  # sell_price
+                                       random.randint(0, 10),  # buy_volume
+                                       random.randint(0, 10)   # sell_volume
+                                       ])
+        else:
+            new_action = self.policy.get_action(self.state_features)
 
         self.buy_price = new_action[0].numpy()
         self.sell_price = new_action[1].numpy()

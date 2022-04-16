@@ -6,8 +6,8 @@ import random
 class MarketEnvironment:
     def __init__(self,
                  state: dict):
-        self.state = state
-        self.market_prices = state["market_prices"]
+        self.state = state.copy()
+        self.market_prices = state["market_prices"].copy()
         self.matched_volumes = state["volume"]
         self.fee = state["fee"]
         self.slippage = state["slippage"]
