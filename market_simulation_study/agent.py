@@ -981,7 +981,7 @@ class Memory:
         """ Add new state, action and reward to memory """
 
         if len(self.states) == self.max_size:
-            self.clear_earliser_entry(self)
+            self.clear_earliest_entry()
 
         self.states.append(state)
         self.actions.append(action)
@@ -1045,7 +1045,8 @@ class ActionValueNetwork(nn.Module):
 class GaussianPolicyNetwork(nn.Module):
 
     def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
-                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function = None):
+                 max_action_value_two: int = 0, min_action_value_two: int = 15,
+                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None):
         super(GaussianPolicyNetwork, self).__init__()
 
         self.input_dims = input_dims
@@ -1053,6 +1054,8 @@ class GaussianPolicyNetwork(nn.Module):
         self.soft_clamp_function = soft_clamp_function
         self.max_action_value = max_action_value
         self.min_action_value = min_action_value
+        self.max_action_value_two = max_action_value_two
+        self.min_action_value_two = min_action_value_two
         self.max_log_sigma = 2  # to cutoff variance estimates
         self.min_log_sigma = -20  # to cutoff variance estimates
 
@@ -1083,7 +1086,9 @@ class GaussianPolicyNetwork(nn.Module):
             action = gauss_dist.sample()
             action.detach()
 
-        action = self.max_action_value * torch.tanh(action / self.max_action_value)
+        # action = self.max_action_value * torch.tanh(action / self.max_action_value)
+        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
 
         return action
@@ -1094,7 +1099,8 @@ class GaussianPolicyNetwork(nn.Module):
         gauss_dist = Normal(loc=mu, scale=sigma)
         action = gauss_dist.sample()
         action.detach()
-        action = action.clamp(min=self.max_action_value, max=self.max_action_value)
+        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
         log_prob = gauss_dist.log_prob(action)
 
@@ -1110,7 +1116,7 @@ class GaussianPolicyNetwork(nn.Module):
         epsilon = unit_gauss.sample()
         action = mu + sigma * epsilon
         action = action.requires_grad_()
-        action = self.max_action * torch.tanh(action / self.max_action)
+        action = self.max_action_value * torch.tanh(action / self.max_action_value)
         log_prob = gauss.log_prob(action.data)
 
         return action, log_prob
@@ -1253,6 +1259,7 @@ class ActorCriticAgent:
             target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
 
     def memory_to_feather(self) -> NoReturn:
+        """Save memory to feather"""
         pd.DataFrame(self.memory.full_memory()).to_feather('data/data.feather')
 
     def calculate_profit_and_loss(self, state: dict) -> NoReturn:
@@ -1275,12 +1282,14 @@ class ActorCriticAgent:
         :return: state features
         """
         features = []
-        returns = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
+        #returns = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
         for i in range(n_returns):
-            features.append(returns.tolist()[i])
+            features.append(state["market_prices"][-i])
+            #features.append(returns.tolist()[i])
         features.append(state["volume"])
         features.append(state["mean_buy_price"])
         features.append(state["mean_sell_price"])
+        features.append(self.position)
 
         return torch.tensor(features)
 
