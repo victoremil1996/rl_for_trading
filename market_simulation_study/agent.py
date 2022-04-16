@@ -959,7 +959,7 @@ class Memory:
         self.actions = []
         self.rewards = []
         self.next_states = []
-        self.terminal = []
+        self.terminals = []
 
     def clear(self):
         """ Clear all memory"""
@@ -967,7 +967,7 @@ class Memory:
         self.actions = []
         self.rewards = []
         self.next_states = []
-        self.terminal = []
+        self.terminals = []
 
     def clear_earliest_entry(self):
         """Clear first remembered experiance"""
@@ -980,7 +980,7 @@ class Memory:
     def add_transition(self, state, action, reward, next_state, terminal):
         """ Add new state, action and reward to memory """
 
-        if len(self.states) == self.memory_size:
+        if len(self.states) == self.max_size:
             self.clear_earliser_entry(self)
 
         self.states.append(state)
@@ -1004,20 +1004,20 @@ class Memory:
 
         states, actions, rewards, next_states, terminals = zip(*combined)
 
-        batch = {'states': torch.stack(states),
-                 'actions': torch.stack(actions),
-                 'rewards': torch.stack(rewards),
-                 'next_states': torch.stack(next_states),
+        batch = {'states': torch.stack(states).float(),
+                 'actions': torch.stack(actions).float(),
+                 'rewards': torch.stack(rewards).float(),
+                 'next_states': torch.stack(next_states).float(),
                  'terminals': torch.stack(terminals)}
 
         return batch
 
     def full_memory(self):
         """ returns full memory"""
-        batch = {'states': torch.stack(self.states),
-                 'actions': torch.stack(self.actions),
-                 'rewards': torch.stack(self.rewards),
-                 'next_states': torch.stack(self.next_states),
+        batch = {'states': torch.stack(self.states).float(),
+                 'actions': torch.stack(self.actions).float(),
+                 'rewards': torch.stack(self.rewards).float(),
+                 'next_states': torch.stack(self.next_states).float(),
                  'terminals': torch.stack(self.terminals)}
         return batch
 
@@ -1063,6 +1063,7 @@ class GaussianPolicyNetwork(nn.Module):
 
     def forward(self, activation):
         """feed through the network and output mu and sigma vectors"""
+        activation = activation.float()
         activation = f.relu(self.fc1(activation))
         activation = f.relu(self.fc2(activation))
         mu = self.mu_layer(activation)
@@ -1082,18 +1083,18 @@ class GaussianPolicyNetwork(nn.Module):
             action = gauss_dist.sample()
             action.detach()
 
-        action = self.max_action * torch.tanh(action / self.max_action)
+        action = self.max_action_value * torch.tanh(action / self.max_action_value)
         action[-2:] = action[-2:].int()
 
         return action
 
     def get_action_and_log_prob(self, state):
 
-        mu, sigma = self.forward(self, state)  # Initialize activation with state
+        mu, sigma = self.forward(state)  # Initialize activation with state
         gauss_dist = Normal(loc=mu, scale=sigma)
         action = gauss_dist.sample()
         action.detach()
-        action = action.clamp(min=self.max_action, max=self.max_action)
+        action = action.clamp(min=self.max_action_value, max=self.max_action_value)
         action[-2:] = action[-2:].int()
         log_prob = gauss_dist.log_prob(action)
 
@@ -1141,10 +1142,10 @@ class ActorCriticAgent:
         self.delta = delta  # base latency
         self.latency = delta
         self.position = 0
-        self.pnl = None
+        self.pnl = 0
         self.buy_price = None
         self.sell_price = None
-        self.all_trades = np.array([0, 0])
+        self.all_trades = np.array([[0, 0]])
         self.buy_volume = None
         self.sell_volume = None
         self.spread = None
@@ -1172,9 +1173,9 @@ class ActorCriticAgent:
         self.num_training_episode_steps = num_training_episode_steps
         self.training_on_policy = training_on_policy
         self.memory = Memory(max_size=max_memory_size)
-        self.state = self.get_state_features(init_state)
+        self.state_features = self.get_state_features(init_state)
 
-        self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action]), low=torch.Tensor([policy.min_action]))
+        #self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action_value]), low=torch.Tensor([policy.min_action_value]))
         self.eval_deterministic = eval_deterministic
 
 
@@ -1213,7 +1214,7 @@ class ActorCriticAgent:
         State Value Losses - Critic
         """
         state_value_target = new_q_values  # The state should represent the value taking the best action
-        vf_loss = (state_value_target.deatch() - state_values).pow(2).mean()
+        vf_loss = (state_value_target.detach() - state_values).pow(2).mean()
 
         """
         Action Value Losses - Critic
@@ -1275,37 +1276,45 @@ class ActorCriticAgent:
         """
         features = []
         returns = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
-        features.append(returns.tolist())
-        features.append([state["volume"]])
+        for i in range(n_returns):
+            features.append(returns.tolist()[i])
+        features.append(state["volume"])
         features.append(state["mean_buy_price"])
         features.append(state["mean_sell_price"])
 
-        return features
+        return torch.tensor(features)
 
-    def update(self, state: dict):
+    def update(self, state: dict, exploration_mode=False):
         """
         Updates RL model and its prices and volumes
         """
-        state_feautures = self.state_features
-        action = self.policy.get_action(state_feautures)
+        state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
+        if exploration_mode:
+            action = torch.tensor([state['market_prices'][-1] + np.random.normal(),  # buy_price
+                                   state['market_prices'][-1] + np.random.normal(),  # sell_price
+                                   random.randint(0, 10),  # buy_volume
+                                   random.randint(0, 10)   # sell_volume
+                                   ])
+        else:
+            action = self.policy.get_action(state_features)
 
         pnl = self.pnl
         self.calculate_profit_and_loss(state=state)
         new_pnl = self.pnl
-        reward = torch.Tensor([new_pnl - pnl])
-        next_state_features = torch.Tensor([self.get_state_features(state)])
-        terminal = 0
+        reward = torch.tensor([new_pnl - pnl])
+        next_state_features = self.get_state_features(state)
+        terminal = torch.tensor(0)
 
-        self.memory.add_transition(state=state_feautures,
+        self.memory.add_transition(state=state_features,
                                    action=action,
                                    reward=reward,
                                    next_state=next_state_features,
                                    terminal=terminal)
-        state_features = next_state_features
+        self.state_features = next_state_features
         if terminal:
             raise NotImplementedError("No terminal state definition")
 
-        new_action = self.policy.get_action(state_features)
+        new_action = self.policy.get_action(self.state_features)
 
         self.buy_price = new_action[0].numpy()
         self.sell_price = new_action[1].numpy()
