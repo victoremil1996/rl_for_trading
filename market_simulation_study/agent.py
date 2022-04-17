@@ -191,7 +191,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.randint(0, 3)
+        volume = np.random.binomial(3, 0.55)
 
         return volume
 
@@ -202,7 +202,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.randint(0, 3)
+        volume = np.random.binomial(3, 0.45)
 
         return volume
 
