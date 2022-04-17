@@ -260,13 +260,15 @@ class InvestorAgent(Agent):
                  buy_price: float = None,
                  sell_price: float = None,
                  all_trades: np.ndarray = None,
-                 buy_volume: float = 20,
-                 sell_volume: float = 20,
+                 buy_volume: float = 5,
+                 sell_volume: float = 10,
                  intensity: float = None,
-                 n_orders: int = 5,
+                 n_orders: int = 20,
                  orders_in_queue: int = 0,
-                 price_margin: float = 0.1,
-                 is_buying: bool = False):
+                 buy_price_margin: float = 0.075,
+                 sell_price_margin: float = 0.15,
+                 is_buying: bool = False,
+                 can_short: bool = False):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
@@ -285,8 +287,10 @@ class InvestorAgent(Agent):
         self.intensity = intensity
         self.n_orders = n_orders
         self.orders_in_queue = orders_in_queue
-        self.price_margin = price_margin
+        self.buy_price_margin = buy_price_margin
+        self.sell_price_margin = sell_price_margin
         self.is_buying = is_buying
+        self.can_short = can_short
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
                                       columns=["buy_price", "buy_volume", "latency", "agent_id"],
                                       index=[self.agent_id])
@@ -301,7 +305,7 @@ class InvestorAgent(Agent):
         :param state: market state information
         :return: buy price
         """
-        buy_price = state["market_prices"][-1] * (1 + self.price_margin)
+        buy_price = state["market_prices"][-1] * (1 + self.buy_price_margin)
         buy_price = np.maximum(buy_price, 0)
         return buy_price
 
@@ -312,8 +316,8 @@ class InvestorAgent(Agent):
         :param state: market state information
         :return: sell price
         """
-        sell_price = state["market_prices"][-1]
-        sell_price = np.maximum(sell_price, 0) * (1 - self.price_margin)
+        sell_price = state["market_prices"][-1] * (1 - self.sell_price_margin)
+        sell_price = np.maximum(sell_price, 0)
         return sell_price
 
     def calculate_buy_volume(self, state: dict) -> float:
@@ -366,7 +370,11 @@ class InvestorAgent(Agent):
 
         # check if investor wants to buy or sell and calculate prices if so
         will_buy = np.random.uniform(0, 1) < self.intensity
-        will_sell = (np.random.uniform(0, 1) < self.intensity) and (self.position >= self.n_orders * self.sell_volume)
+        if self.can_short:
+            sell_is_possible = True
+        else:
+            sell_is_possible = (self.position >= self.n_orders * self.sell_volume)
+        will_sell = (np.random.uniform(0, 1) < self.intensity) and sell_is_possible
 
         if self.orders_in_queue == 0:
             self.is_buying = False
@@ -385,7 +393,7 @@ class InvestorAgent(Agent):
             self.buy_price = self.calculate_buy_price(state)
 
         elif will_sell and self.orders_in_queue == 0:  # starts to sell
-            self.orders_in_queue = self.n_orders - 1
+            self.orders_in_queue = int(self.n_orders/2) - 1
             self.sell_price = self.calculate_sell_price(state)
 
         # Update volume
@@ -960,6 +968,7 @@ class Memory:
         self.rewards = []
         self.next_states = []
         self.terminals = []
+        self.discounted_rewards = []
 
     def clear(self):
         """ Clear all memory"""
@@ -968,6 +977,7 @@ class Memory:
         self.rewards = []
         self.next_states = []
         self.terminals = []
+        self.discounted_rewards = []
 
     def clear_earliest_entry(self):
         """Clear first remembered experiance"""
@@ -976,6 +986,7 @@ class Memory:
         self.rewards = self.rewards[1:]
         self.next_states = self.next_states[1:]
         self.terminals = self.terminals[1:]
+        self.discounted_rewards = self.discounted_rewards[1:]
 
     def add_transition(self, state, action, reward, next_state, terminal):
         """ Add new state, action and reward to memory """
@@ -988,12 +999,14 @@ class Memory:
         self.rewards.append(reward)
         self.next_states.append(next_state)
         self.terminals.append(terminal)
+        self.discounted_rewards.append(reward)
 
     def draw_batch(self, batch_size: int = 50):
         """draws a random sample batch from memory"""
         combined = list(zip(self.states,
                             self.actions,
                             self.rewards,
+                            self.discounted_rewards,
                             self.next_states,
                             self.terminals))
 
@@ -1002,11 +1015,12 @@ class Memory:
         if batch_size is not None:
             combined = combined[:batch_size]
 
-        states, actions, rewards, next_states, terminals = zip(*combined)
+        states, actions, rewards, discounted_rewards, next_states, terminals = zip(*combined)
 
         batch = {'states': torch.stack(states).float(),
                  'actions': torch.stack(actions).float(),
                  'rewards': torch.stack(rewards).float(),
+                 'discounted_rewards': torch.stack(discounted_rewards).float(),
                  'next_states': torch.stack(next_states).float(),
                  'terminals': torch.stack(terminals)}
 
@@ -1014,11 +1028,12 @@ class Memory:
 
     def full_memory(self):
         """ returns full memory"""
-        batch = {'states': torch.stack(self.states).float(),
-                 'actions': torch.stack(self.actions).float(),
-                 'rewards': torch.stack(self.rewards).float(),
-                 'next_states': torch.stack(self.next_states).float(),
-                 'terminals': torch.stack(self.terminals)}
+        batch = {'states': self.states,
+                 'actions': self.actions,
+                 'rewards': self.rewards,
+                 'discounted_rewards': self.discounted_rewards,
+                 'next_states': self.next_states,
+                 'terminals': self.terminals}
         return batch
 
 
@@ -1076,11 +1091,11 @@ class GaussianPolicyNetwork(nn.Module):
 
         return mu, sigma
 
-    def get_action(self, state, eval_deterministic=False):
+    def get_action(self, state, eval_deterministic=False, save_mu = False):
 
         mu, sigma = self.forward(state)
         if eval_deterministic:
-            action = mu
+            action = mu.detach()
         else:
             gauss_dist = Normal(loc=mu, scale=sigma)
             action = gauss_dist.sample()
@@ -1090,6 +1105,9 @@ class GaussianPolicyNetwork(nn.Module):
         action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
+
+        if save_mu:
+            return action, mu
 
         return action
 
@@ -1185,6 +1203,9 @@ class ActorCriticAgent:
         self.eval_deterministic = eval_deterministic
 
 
+        self.mu1, self.mu2, self.mu3, self.mu4 = 0, 0, 0, 0
+
+
         #self.loss = nn.MSELoss()
         #self.R_av = None
         #self.R_tot = 0
@@ -1196,7 +1217,7 @@ class ActorCriticAgent:
         self.pnl = 0
         self.buy_price = None
         self.sell_price = None
-        self.all_trades = np.array([[0, 0]])
+        self.all_trades = np.array([[0, 0]]).copy()
         self.buy_volume = None
         self.sell_volume = None
 
@@ -1204,6 +1225,22 @@ class ActorCriticAgent:
         """
         Takes a gradient descent step and updates parameters in function approximators
         """
+
+        """
+        Calculate discounted rewards
+        """
+        reward_vector = [x for reward in self.memory.full_memory()["rewards"] for x in reward.numpy()]
+        discounted_rewards = [0] * len(reward_vector)
+        cum_reward = 0
+        for i in reversed(range(len(reward_vector))):
+            cum_reward = cum_reward * self.discount_factor + reward_vector[i]
+            discounted_rewards[i] = torch.tensor([cum_reward])
+        self.memory.discounted_rewards = discounted_rewards
+
+        """
+        Train
+        """
+
         if self.training_on_policy:
             batch = self.memory.draw_batch(self.batch_size)
             self.memory.clear()
@@ -1211,7 +1248,7 @@ class ActorCriticAgent:
             batch = self.memory.draw_batch(self.batch_size)
         states = batch['states']
         actions = batch['actions']
-        rewards = batch['rewards']
+        rewards = batch['discounted_rewards']
         next_states = batch['next_states']
         terminals = batch['terminals']
 
@@ -1293,10 +1330,11 @@ class ActorCriticAgent:
         :return: state features
         """
         features = []
-        #returns = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
+        returns_relative = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
+        #returns = np.array(state["market_prices"][-n_returns:]) - np.array(state["market_prices"][-n_returns - 1:-1])
         for i in range(n_returns):
-            features.append(state["market_prices"][-i])
-            #features.append(returns.tolist()[i])
+            #features.append(state["market_prices"][-i])
+            features.append(returns_relative.tolist()[i])
         features.append(state["volume"])
         features.append(state["mean_buy_price"])
         features.append(state["mean_sell_price"])
@@ -1341,10 +1379,14 @@ class ActorCriticAgent:
                                        random.randint(0, 10)   # sell_volume
                                        ])
         else:
-            new_action = self.policy.get_action(self.state_features)
+            new_action, mus = self.policy.get_action(self.state_features, save_mu = True)
+            self.mu1 = mus[0]
+            self.mu2 = mus[1]
+            self.mu3 = mus[2]
+            self.mu4 = mus[3]
 
-        self.buy_price = new_action[0].numpy()
-        self.sell_price = new_action[1].numpy()
+        self.buy_price = new_action[0].numpy() * state['market_prices'][-1]
+        self.sell_price = new_action[1].numpy() * state['market_prices'][-1]
         self.buy_volume = new_action[2].numpy()
         self.sell_volume = new_action[3].numpy()
 
