@@ -22,7 +22,7 @@ from torch.optim import Optimizer
 from torch.optim import Adam
 from torch import nn
 from torch.distributions import Uniform
-from torch.distributions import Normal
+from torch.distributions import Normal, Binomial
 from torch.nn import functional as f
 
 
@@ -1071,8 +1071,10 @@ class GaussianPolicyNetwork(nn.Module):
         self.min_action_value = min_action_value
         self.max_action_value_two = max_action_value_two
         self.min_action_value_two = min_action_value_two
-        self.max_log_sigma = 2  # to cutoff variance estimates
-        self.min_log_sigma = -20  # to cutoff variance estimates
+        self.max_log_sigma = -3  # to cutoff variance estimates
+        self.min_log_sigma = -10  # to cutoff variance estimates
+        self.max_log_sigma_two = 1
+        self.min_log_sigma_two = -10
 
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)
@@ -1086,6 +1088,7 @@ class GaussianPolicyNetwork(nn.Module):
         activation = f.relu(self.fc2(activation))
         mu = self.mu_layer(activation)
         log_sigma = self.log_sigma_layer(activation)
+
         log_sigma = log_sigma.clamp(min=self.min_log_sigma, max=self.max_log_sigma)
         sigma = torch.exp(log_sigma)
 
@@ -1094,6 +1097,7 @@ class GaussianPolicyNetwork(nn.Module):
     def get_action(self, state, eval_deterministic=False, save_mu = False):
 
         mu, sigma = self.forward(state)
+        print("sigma: ", sigma)
         if eval_deterministic:
             action = mu.detach()
         else:
@@ -1105,9 +1109,9 @@ class GaussianPolicyNetwork(nn.Module):
         action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
-
+            
         if save_mu:
-            return action, mu
+            return action, mu, sigma
 
         return action
 
@@ -1139,10 +1143,111 @@ class GaussianPolicyNetwork(nn.Module):
 
         return action, log_prob
 
+class GaussianBinomialPolicyNetwork(nn.Module):
+
+    def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
+                 max_action_value_two: int = 0, min_action_value_two: int = 15,
+                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None, sigma = 0.05):
+        super(GaussianBinomialPolicyNetwork, self).__init__()
+
+        self.input_dims = input_dims
+        self.action_dims = action_dims
+        self.soft_clamp_function = soft_clamp_function
+        self.max_action_value = max_action_value
+        self.min_action_value = min_action_value
+        self.max_action_value_two = max_action_value_two
+        self.min_action_value_two = min_action_value_two
+        self.max_log_sigma = -3  # to cutoff variance estimates
+        self.min_log_sigma = -10  # to cutoff variance estimates
+        self.max_log_sigma_two = 1
+        self.min_log_sigma_two = -10
+        self.sigma = sigma
+
+        self.fc1 = nn.Linear(self.input_dims, fc1_dims)
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
+        self.mu_layer = nn.Linear(fc2_dims, int(self.action_dims/2))
+        # self.log_sigma_layer = nn.Linear(fc2_dims, self.action_dims)
+        self.p_layer = nn.Linear(fc2_dims, int(self.action_dims/2))
+
+    def forward(self, activation):
+        """feed through the network and output mu and sigma vectors"""
+        activation = activation.float()
+        activation = f.relu(self.fc1(activation))
+        activation = f.relu(self.fc2(activation))
+        mu = torch.tanh(self.mu_layer(activation))
+        p = torch.sigmoid(self.p_layer(activation))
+        # log_sigma = self.log_sigma_layer(activation)
+        # log_sigma = log_sigma.clamp(min=self.min_log_sigma, max=self.max_log_sigma)
+        # sigma = torch.exp(log_sigma)
+
+        return mu, p#, sigma
+
+    def get_action(self, state, eval_deterministic=False, save_mu = False):
+
+        mu, p = self.forward(state)
+        
+        # if eval_deterministic:
+        #     action = mu.detach()
+        # else:
+        gauss_dist = Normal(loc=mu, scale=self.sigma)
+        action_mu = gauss_dist.sample()
+        
+        binomial_dist = Binomial(total_count = self.max_action_value_two, probs = p)
+        action_p = binomial_dist.sample()
+        action = torch.cat((action_mu, action_p))
+        action.detach()
+        
+        # action = self.max_action_value * torch.tanh(action / self.max_action_value)
+        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
+        action[-2:] = action[-2:].int()
+            
+        if save_mu:
+            return action, mu, p
+
+        return action
+
+    def get_action_and_log_prob(self, state):
+
+        mu, p = self.forward(state)  # Initialize activation with state
+        gauss_dist = Normal(loc=mu, scale=self.sigma)
+        action_mu = gauss_dist.sample()
+        
+        binomial_dist = Binomial(total_count = self.max_action_value_two, probs = p)
+        action_p = binomial_dist.sample()
+        action = torch.cat((action_mu, action_p), 1)
+        action.detach()
+        
+        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
+        action[-2:] = action[-2:].int()
+        
+        log_prob_mu = gauss_dist.log_prob(action_mu)
+        log_prob_p = binomial_dist.log_prob(action_p)
+        
+        log_prob = torch.cat((log_prob_mu, log_prob_p), 1)
+        
+        return action, log_prob
+
+    def random_sample(self, state):
+
+        mu, sigma = self.forward(state)
+        loc = torch.zeros(size=[state.shape[0], 1], dtype=torch.float32)
+        scale = loc + 1.0
+        unit_gauss = Normal(loc=loc, scale=scale)
+        gauss = Normal(loc=mu, scale=sigma)
+        epsilon = unit_gauss.sample()
+        action = mu + sigma * epsilon
+        action = action.requires_grad_()
+        action = self.max_action_value * torch.tanh(action / self.max_action_value)
+        log_prob = gauss.log_prob(action.data)
+
+        return action, log_prob
+
 
 class ActorCriticAgent:
     def __init__(self,
-                 policy: GaussianPolicyNetwork,
+                 policy: nn.Module,
                  qf: ActionValueNetwork,
                  qf_optimiser: Optimizer,
                  policy_optimiser: Optimizer,
@@ -1159,7 +1264,8 @@ class ActorCriticAgent:
                  vf_optimiser: Optimizer=None,
                  agent_id=0,
                  delta=1,
-                 init_state=None):
+                 init_state=None,
+                 position_penalty = 1):
 
         self.agent_class = "ActorCritic"
         self.agent_id = agent_id
@@ -1198,6 +1304,7 @@ class ActorCriticAgent:
         self.training_on_policy = training_on_policy
         self.memory = Memory(max_size=max_memory_size)
         self.state_features = self.get_state_features(init_state)
+        self.position_penalty = position_penalty 
 
         #self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action_value]), low=torch.Tensor([policy.min_action_value]))
         self.eval_deterministic = eval_deterministic
@@ -1220,6 +1327,7 @@ class ActorCriticAgent:
         self.all_trades = np.array([[0, 0]]).copy()
         self.buy_volume = None
         self.sell_volume = None
+        self.memory.clear()
 
     def score_gradient_descent(self) -> NoReturn:
         """
@@ -1248,7 +1356,7 @@ class ActorCriticAgent:
             batch = self.memory.draw_batch(self.batch_size)
         states = batch['states']
         actions = batch['actions']
-        rewards = batch['discounted_rewards']
+        rewards = batch['rewards']
         next_states = batch['next_states']
         terminals = batch['terminals']
 
@@ -1322,7 +1430,7 @@ class ActorCriticAgent:
 
         self.pnl = realized_value + unrealized_value
 
-    def get_state_features(self, state: dict, n_returns = 3):
+    def get_state_features(self, state: dict, n_returns = 5):
         """
         Extract features from market state information
 
@@ -1332,13 +1440,19 @@ class ActorCriticAgent:
         features = []
         returns_relative = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
         #returns = np.array(state["market_prices"][-n_returns:]) - np.array(state["market_prices"][-n_returns - 1:-1])
+        average_return = np.average(returns_relative[-100:])
+        local_volatility = np.average((returns_relative[-10:]-average_return)**2)
         for i in range(n_returns):
             #features.append(state["market_prices"][-i])
             features.append(returns_relative.tolist()[i])
         features.append(state["volume"])
+        features.append(state["total_buy_volume"])
+        features.append(state["total_sell_volume"])
         features.append(state["mean_buy_price"])
         features.append(state["mean_sell_price"])
+        features.append(local_volatility)
         features.append(self.position)
+
 
         return torch.tensor(features)
 
@@ -1359,7 +1473,8 @@ class ActorCriticAgent:
         pnl = self.pnl
         self.calculate_profit_and_loss(state=state)
         new_pnl = self.pnl
-        reward = torch.tensor([new_pnl - pnl])
+        position = self.position
+        reward = torch.tensor([new_pnl - pnl - self.position_penalty * position**2])
         next_state_features = self.get_state_features(state)
         terminal = torch.tensor(0)
 
@@ -1379,16 +1494,16 @@ class ActorCriticAgent:
                                        random.randint(0, 10)   # sell_volume
                                        ])
         else:
-            new_action, mus = self.policy.get_action(self.state_features, save_mu = True)
+            new_action, mus, ps = self.policy.get_action(self.state_features, save_mu = True)
             self.mu1 = mus[0]
             self.mu2 = mus[1]
-            self.mu3 = mus[2]
-            self.mu4 = mus[3]
+            self.mu3 = ps[0]
+            self.mu4 = ps[1]
 
-        self.buy_price = new_action[0].numpy() * state['market_prices'][-1]
-        self.sell_price = new_action[1].numpy() * state['market_prices'][-1]
-        self.buy_volume = new_action[2].numpy()
-        self.sell_volume = new_action[3].numpy()
+        self.buy_price = (1+new_action[0].numpy()) * state['market_prices'][-1]
+        self.sell_price = (1+new_action[1].numpy()) * state['market_prices'][-1]
+        self.buy_volume = int(new_action[2].numpy())
+        self.sell_volume = int(new_action[3].numpy())
 
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
                                       columns=["buy_price", "buy_volume", "latency", "agent_id"],
