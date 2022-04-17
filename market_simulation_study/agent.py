@@ -260,10 +260,10 @@ class InvestorAgent(Agent):
                  buy_price: float = None,
                  sell_price: float = None,
                  all_trades: np.ndarray = None,
-                 buy_volume: float = 20,
+                 buy_volume: float = 10,
                  sell_volume: float = 20,
                  intensity: float = None,
-                 n_orders: int = 5,
+                 n_orders: int = 10,
                  orders_in_queue: int = 0,
                  price_margin: float = 0.1,
                  is_buying: bool = False):
@@ -385,7 +385,7 @@ class InvestorAgent(Agent):
             self.buy_price = self.calculate_buy_price(state)
 
         elif will_sell and self.orders_in_queue == 0:  # starts to sell
-            self.orders_in_queue = self.n_orders - 1
+            self.orders_in_queue = int(self.n_orders/2) - 1
             self.sell_price = self.calculate_sell_price(state)
 
         # Update volume
