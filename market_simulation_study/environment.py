@@ -169,7 +169,7 @@ class MarketEnvironment:
             
         if np.sum(matched_volume) > 0:
             #mean_price = np.average(matched_price, weights = matched_volume)
-            median_price = weighted_percentile(matched_price, p=0.5, probs=matched_volume)
+            median_price = weighted_percentile(np.array(matched_price), p=0.5, probs=np.array(matched_volume))
         else:
             mean_price = self.market_prices[-1]
 
