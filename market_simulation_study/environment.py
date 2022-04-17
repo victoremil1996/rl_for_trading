@@ -82,8 +82,8 @@ class MarketEnvironment:
                     #self.agents[int(order["agent_id"])].sell_order["sell_volume"] -= trade_volume
                     sell_order_book.at[index, 'sell_volume'] -= trade_volume
                     trade_price = order["sell_price"]
-                    buy_trade = np.array([trade_price, trade_volume])
-                    sell_trade = np.array([trade_price, -trade_volume])
+                    buy_trade = np.array([trade_price, -trade_volume])
+                    sell_trade = np.array([trade_price, trade_volume])
 
                     self.agents[i+1].position += trade_volume
                     self.agents[i + 1].all_trades = np.vstack((self.agents[i + 1].all_trades, buy_trade))
@@ -130,8 +130,8 @@ class MarketEnvironment:
                     buy_order_book.at[index, 'buy_volume'] -= trade_volume
                     trade_price = order["buy_price"]
 
-                    buy_trade = np.array([trade_price, trade_volume])
-                    sell_trade = np.array([trade_price, -trade_volume])
+                    buy_trade = np.array([trade_price, -trade_volume])
+                    sell_trade = np.array([trade_price, trade_volume])
 
                     # Update agent i's position and trade history
                     self.agents[i + 1].all_trades = np.vstack((self.agents[i + 1].all_trades, sell_trade))
