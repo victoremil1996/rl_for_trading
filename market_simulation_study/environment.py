@@ -2,6 +2,7 @@ from typing import NoReturn
 import numpy as np
 import pandas as pd
 import random
+from codelib.stats import weighted_percentile
 
 class MarketEnvironment:
     def __init__(self,
@@ -168,12 +169,13 @@ class MarketEnvironment:
             
         if np.sum(matched_volume) > 0:
             #mean_price = np.average(matched_price, weights = matched_volume)
-            mean_price = np.quantile(matched_price, q = 0.5)
+            median_price = weighted_percentile(np.array(matched_price), p=0.5, probs=np.array(matched_volume))
         else:
             mean_price = self.market_prices[-1]
 
         # Update prices and trade info
-        self.market_prices.append(mean_price)
+        #self.market_prices.append(mean_price)
+        self.market_prices.append(median_price)
         #matched_trades = np.array([matched_buy_price, matched_sell_price, matched_buy_volume, matched_sell_volume])
         self.matched_volumes = np.sum(matched_volume)
 
