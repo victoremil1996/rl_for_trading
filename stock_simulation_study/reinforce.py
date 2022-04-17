@@ -123,14 +123,14 @@ class Agent:
         #global env
 
         self.reset()
-        self.state = env.reset()
+        self.state = env.reset(self.state_size)
         self.done = False
 
         while not self.done:
             if render:
                 env.render()
             self.action = self.act(self.state.reshape([1, self.state_size]))
-            self.next_state, self.reward, self.done, _ = env.step(self.action)
+            self.next_state, self.reward, self.done, _ = env.step(self.action, self.state_size)
             self.total_reward += self.reward
 
             self.remember()
@@ -236,7 +236,7 @@ class REINFORCE_Agent(Agent):
     def __init__(self, state_size=4, action_size=5, learning_rate=0.0005,
                  discount_rate=0, n_hidden_layers=2, hidden_layer_size=16,
                  activation='relu', reg_penalty=0, dropout=0, filename="kreinforce",
-                 verbose=True):
+                 verbose=True, epsilon = 0.1):
         self.state_size = state_size
         self.action_size = action_size
         self.action_space = list(range(action_size))
@@ -255,7 +255,7 @@ class REINFORCE_Agent(Agent):
         self.results = []
         self.save_interval = 10
         self.reset()
-        self.epsilon = 0.05
+        self.epsilon = epsilon
 
     def reset(self):
         """reset agent for start of episode"""
@@ -304,7 +304,7 @@ class REINFORCE_Agent(Agent):
 
         outputs = Dense(self.action_size, activation='softmax', name="Output")(last_layer)
         train_model = Model(inputs=[inputs, discounted_rewards], outputs=[outputs])
-        train_model.compile(optimizer=Adam(lr=self.learning_rate), loss=custom_loss)
+        train_model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss=custom_loss)
 
         predict_model = Model(inputs=[inputs], outputs=[outputs])
 
@@ -317,7 +317,7 @@ class REINFORCE_Agent(Agent):
         """pick an action using predict_model"""
         probabilities = self.predict_model.predict(state)
         if random.random() < self.epsilon:
-            action = random.randint(0, 2)
+            action = random.randint(0, self.action_size-1)
         else:
             action = np.random.choice(self.action_space, p=probabilities[0])
         return action
@@ -393,4 +393,7 @@ class REINFORCE_Agent(Agent):
         print("loaded %d results, %d rows of memory, epsilon %.4f" % (len(self.results),
                                                                       len(self.memory),
                                                                       self.epsilon))
+
+
+
 
