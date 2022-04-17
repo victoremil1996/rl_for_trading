@@ -61,7 +61,13 @@ class MarketEnvironment:
         sell_order_book = pd.DataFrame(sell_order_book, index = sell_order_book.iloc[:, -1])
         buy_order_book = pd.DataFrame(buy_order_book, index = buy_order_book.iloc[:, -1])
 
+
+        total_buy_volume = self.agents[0].buy_volume
+        total_sell_volume = self.agents[0].sell_volume
+        
         for i in range(len(self.agents)-1):
+            total_buy_volume += self.agents[i+1].buy_volume
+            total_sell_volume += self.agents[i+1].sell_volume
             #========================================#
             # CHECK IF AGENT i CAN MAKE A BUY TRADE #
             #========================================#
@@ -174,7 +180,8 @@ class MarketEnvironment:
 
         agent_ids = self.get_agent_ids()
         self.agents = [x for _, x in sorted(zip(agent_ids, self.agents))]  # Sorting buyers according to latency
-
+        self.total_buy_volume = total_buy_volume        
+        self.total_sell_volume = total_sell_volume
     def update_market(self) -> NoReturn:
 
         self.state = {'volume': self.matched_volumes, # Total volume
@@ -182,7 +189,9 @@ class MarketEnvironment:
                       'fee': self.fee,
                       'mean_buy_price': self.mean_buy_price,
                       'mean_sell_price': self.mean_sell_price,
-                      'slippage': self.slippage}
+                      'slippage': self.slippage,
+                      'total_buy_volume': self.total_buy_volume,
+                      'total_sell_volume': self.total_sell_volume}
 
     def step(self, agents: list) -> dict:
         self.agents = agents

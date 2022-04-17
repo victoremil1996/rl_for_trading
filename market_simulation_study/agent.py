@@ -1322,7 +1322,7 @@ class ActorCriticAgent:
 
         self.pnl = realized_value + unrealized_value
 
-    def get_state_features(self, state: dict, n_returns = 3):
+    def get_state_features(self, state: dict, n_returns = 5):
         """
         Extract features from market state information
 
@@ -1332,13 +1332,19 @@ class ActorCriticAgent:
         features = []
         returns_relative = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
         #returns = np.array(state["market_prices"][-n_returns:]) - np.array(state["market_prices"][-n_returns - 1:-1])
+        average_return = np.average(returns_relative[-100:])
+        local_volatility = np.average((returns_relative[-10:]-average_return)**2)
         for i in range(n_returns):
             #features.append(state["market_prices"][-i])
             features.append(returns_relative.tolist()[i])
         features.append(state["volume"])
+        features.append(state["total_buy_volume"])
+        features.append(state["total_sell_volume"])
         features.append(state["mean_buy_price"])
         features.append(state["mean_sell_price"])
+        features.append(local_volatility)
         features.append(self.position)
+
 
         return torch.tensor(features)
 
