@@ -167,7 +167,8 @@ class MarketEnvironment:
         
             
         if np.sum(matched_volume) > 0:
-            mean_price = np.average(matched_price, weights = matched_volume)
+            #mean_price = np.average(matched_price, weights = matched_volume)
+            mean_price = np.quantile(matched_price, q = 0.5)
         else:
             mean_price = self.market_prices[-1]
 
