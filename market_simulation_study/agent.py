@@ -1188,17 +1188,20 @@ class GaussianBinomialPolicyNetwork(nn.Module):
 
         mu, p = self.forward(state)
         
-        # if eval_deterministic:
-        #     action = mu.detach()
-        # else:
-        gauss_dist = Normal(loc=mu, scale=self.sigma)
-        action_mu = gauss_dist.sample()
-        
-        binomial_dist = Binomial(total_count = self.max_action_value_two, probs = p)
-        action_p = binomial_dist.sample()
+        if eval_deterministic:
+            action_mu = mu.detach()
+            action_p = p * self.max_action_value_two
+            action_p = action_p.int()
+            action_p = action_p.float()
+        else:
+            gauss_dist = Normal(loc=mu, scale=self.sigma)
+            action_mu = gauss_dist.sample()
+            binomial_dist = Binomial(total_count = self.max_action_value_two, probs = p)
+            action_p = binomial_dist.sample()
+
         action = torch.cat((action_mu, action_p))
         action.detach()
-        
+
         # action = self.max_action_value * torch.tanh(action / self.max_action_value)
         action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
