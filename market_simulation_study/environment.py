@@ -171,6 +171,7 @@ class MarketEnvironment:
             #mean_price = np.average(matched_price, weights = matched_volume)
             median_price = weighted_percentile(np.array(matched_price), p=0.5, probs=np.array(matched_volume))
         else:
+            median_price = self.market_prices[-1]
             mean_price = self.market_prices[-1]
 
         # Update prices and trade info
