@@ -137,7 +137,8 @@ class RandomAgent(Agent):
                  all_trades: np.ndarray = None,
                  buy_volume: float = None,
                  sell_volume: float = None,
-                 noise_range: Tuple = None):
+                 noise_range: Tuple = None,
+                 mid_price_noise: float = 0.001):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
@@ -153,7 +154,8 @@ class RandomAgent(Agent):
         self.all_trades = all_trades if all_trades else np.array([0, 0])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
-        self.noise_range = noise_range if noise_range else [0.01, 0.03]
+        self.mid_price_noise = mid_price_noise
+        self.noise_range = noise_range if noise_range else [0.001, 0.005]
         self.random_agent_price = None
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
                                       columns=["buy_price", "buy_volume", "latency", "agent_id"])
@@ -191,7 +193,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.binomial(3, 0.55)
+        volume = np.random.binomial(2, 0.51)
 
         return volume
 
@@ -202,7 +204,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.binomial(3, 0.45)
+        volume = np.random.binomial(2, 0.5)
 
         return volume
 
@@ -230,7 +232,7 @@ class RandomAgent(Agent):
         self.latency = self.delta + np.random.uniform(1e-6, 1)
 
         # Update prices and volume
-        self.random_agent_price = state["market_prices"][-1] + np.random.normal(loc=0, scale=2)
+        self.random_agent_price = state["market_prices"][-1] * (1 + np.random.normal(loc=0, scale=self.mid_price_noise))
 
         self.buy_price = self.calculate_buy_price(state)
         self.sell_price = self.calculate_sell_price(state)
@@ -265,8 +267,8 @@ class InvestorAgent(Agent):
                  intensity: float = None,
                  n_orders: int = 20,
                  orders_in_queue: int = 0,
-                 buy_price_margin: float = 0.075,
-                 sell_price_margin: float = 0.15,
+                 buy_price_margin: float = 0.025,
+                 sell_price_margin: float = 0.05,
                  is_buying: bool = False,
                  can_short: bool = False):
         """
@@ -427,8 +429,8 @@ class TrendAgent(Agent):
                  sell_volume: float = 0,
                  price_margin: float = 0.05,
                  const_position_size: int = 5,
-                 moving_average_one: int = 50,
-                 moving_average_two: int = 200):
+                 moving_average_one: int = 25,
+                 moving_average_two: int = 100):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
@@ -561,8 +563,8 @@ class MarketMakerAgent(Agent):
     def __init__(self,
                  agent_id: int = None,
                  delta: float = None,
-                 gamma: float = None,
-                 gamma2: float = None,
+                 gamma: float = 0.01,
+                 gamma2: float = 0.5,
                  position: int = 0,
                  pnl: float = None,
                  buy_price: float = None,
@@ -636,7 +638,7 @@ class MarketMakerAgent(Agent):
         :param state:
         :return:
         """
-        buy_price = self.mid_price - self.spread / 2 + np.random.normal(loc=0, scale=0.01)
+        buy_price = self.mid_price - self.spread / 2 + np.random.normal(loc=0, scale=0.001)
         return buy_price
 
     def calculate_sell_price(self) -> float:
@@ -646,7 +648,7 @@ class MarketMakerAgent(Agent):
         :param state:
         :return:
         """
-        sell_price = self.mid_price + self.spread / 2 + np.random.normal(loc=0, scale=0.01)
+        sell_price = self.mid_price + self.spread / 2 + np.random.normal(loc=0, scale=0.001)
         return sell_price
 
     def calculate_buy_volume(self) -> float:
@@ -1462,10 +1464,10 @@ class ActorCriticAgent:
         """
         state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
         if exploration_mode:
-            action = torch.tensor([state_features[0] - abs(np.random.normal()),  # buy_price
-                                   state_features[0] + abs(np.random.normal()),  # sell_price
-                                   random.randint(0, 10),  # buy_volume
-                                   random.randint(0, 10)   # sell_volume
+            action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
+                                   np.random.normal(scale = 0.01),  # sell_price
+                                   np.random.randint(0, 10),  # buy_volume
+                                   np.random.randint(0, 10)   # sell_volume
                                    ])
         else:
             action = self.policy.get_action(state_features)
@@ -1488,11 +1490,11 @@ class ActorCriticAgent:
             raise NotImplementedError("No terminal state definition")
 
         if exploration_mode:
-            new_action = torch.tensor([self.state_features[0] - abs(np.random.normal()),  # buy_price
-                                       self.state_features[0] + abs(np.random.normal()),  # sell_price
-                                       random.randint(0, 10),  # buy_volume
-                                       random.randint(0, 10)   # sell_volume
-                                       ])
+            new_action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
+                                   np.random.normal(scale = 0.01),  # sell_price
+                                   np.random.randint(0, 10),  # buy_volume
+                                   np.random.randint(0, 10)   # sell_volume
+                                   ])
         else:
             new_action, mus, ps = self.policy.get_action(self.state_features, save_mu = True)
             self.mu1 = mus[0]
@@ -1500,8 +1502,8 @@ class ActorCriticAgent:
             self.mu3 = ps[0]
             self.mu4 = ps[1]
 
-        self.buy_price = (1+new_action[0].numpy()) * state['market_prices'][-1]
-        self.sell_price = (1+new_action[1].numpy()) * state['market_prices'][-1]
+        self.buy_price = (1 + new_action[0].numpy()) * state['market_prices'][-1]
+        self.sell_price = (1 + new_action[1].numpy()) * state['market_prices'][-1]
         self.buy_volume = int(new_action[2].numpy())
         self.sell_volume = int(new_action[3].numpy())
 
