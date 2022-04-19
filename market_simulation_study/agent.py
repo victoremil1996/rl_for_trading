@@ -1042,9 +1042,11 @@ class Memory:
 class ActionValueNetwork(nn.Module):
     """Critic Neural Network approximating the action-value function"""
 
-    def __init__(self, input_dims, fc1_dims: int = 256, fc2_dims: int = 256):
+    def __init__(self, input_dims, fc1_dims: int = 256, fc2_dims: int = 256,
+                 chkpt_dir = 'nn_models', name = 'gaus_bin'):
         super(ActionValueNetwork, self).__init__()
-
+        
+        self.checkpoint_file = os.path.join(chkpt_dir,name+'_nn')
         self.input_dims = input_dims
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)  # Fully connected layer 1 / Hidden layer 1
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)  # Hidden layer 2
@@ -1057,7 +1059,14 @@ class ActionValueNetwork(nn.Module):
         activation = self.fc3(activation)
 
         return activation
-
+    
+    def save_checkpoint(self):
+        print('...saving checkpoint...')
+        torch.save(self.state_dict(), self.checkpoint_file)
+        
+    def load_checkpoint(self, file):
+        print('... loading checkpoint ...')
+        self.load_state_dict(torch.load(file))
 
 class GaussianPolicyNetwork(nn.Module):
 
@@ -1149,9 +1158,11 @@ class GaussianBinomialPolicyNetwork(nn.Module):
 
     def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
                  max_action_value_two: int = 0, min_action_value_two: int = 15,
-                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None, sigma = 0.05):
+                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None, sigma = 0.05,
+                 chkpt_dir = 'nn_models', name = 'gaus_bin'):
         super(GaussianBinomialPolicyNetwork, self).__init__()
-
+        
+        self.checkpoint_file = os.path.join(chkpt_dir,name+'_nn')
         self.input_dims = input_dims
         self.action_dims = action_dims
         self.soft_clamp_function = soft_clamp_function
@@ -1245,6 +1256,14 @@ class GaussianBinomialPolicyNetwork(nn.Module):
         log_prob = gauss.log_prob(action.data)
 
         return action, log_prob
+    
+    def save_checkpoint(self):
+        print('...saving checkpoint...')
+        torch.save(self.state_dict(), self.checkpoint_file)
+        
+    def load_checkpoint(self, file):
+        print('... loading checkpoint ...')
+        self.load_state_dict(torch.load(file))
 
 
 class ActorCriticAgent:
@@ -1267,8 +1286,8 @@ class ActorCriticAgent:
                  agent_id=0,
                  delta=1,
                  init_state=None,
-                 position_penalty = 1):
-
+                 position_penalty = 0.001):
+        
         self.agent_class = "ActorCritic"
         self.agent_id = agent_id
         self.delta = delta  # base latency
@@ -1464,11 +1483,19 @@ class ActorCriticAgent:
         """
         state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
         if exploration_mode:
-            action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
-                                   np.random.normal(scale = 0.01),  # sell_price
-                                   np.random.randint(0, 10),  # buy_volume
-                                   np.random.randint(0, 10)   # sell_volume
+            # action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
+            #                        np.abs(np.random.normal(scale = 0.01)),  # sell_price
+            #                        np.random.randint(0, 5),  # buy_volume
+            #                        np.random.randint(0, 5)   # sell_volume
+            #                        ])
+            action_p = self.policy.get_action(state_features)
+            action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
+                                   np.abs(np.random.normal(scale = 0.01)),
+                                   action_p[2],
+                                   action_p[3]
                                    ])
+            
+            # action = torch.cat((action_mu, action_p[2], action_p[3]))
         else:
             action = self.policy.get_action(state_features)
 
@@ -1490,11 +1517,19 @@ class ActorCriticAgent:
             raise NotImplementedError("No terminal state definition")
 
         if exploration_mode:
-            new_action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
-                                   np.random.normal(scale = 0.01),  # sell_price
-                                   np.random.randint(0, 10),  # buy_volume
-                                   np.random.randint(0, 10)   # sell_volume
+            # new_action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
+            #                        np.abs(np.random.normal(scale = 0.01)),  # sell_price
+            #                        np.random.randint(0, 5),  # buy_volume
+            #                        np.random.randint(0, 5)   # sell_volume
+            #                        ])
+
+            action_p = self.policy.get_action(state_features)
+            new_action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
+                                   np.abs(np.random.normal(scale = 0.01)),
+                                   action_p[2],
+                                   action_p[3]
                                    ])
+            
         else:
             new_action, mus, ps = self.policy.get_action(self.state_features, save_mu = True)
             self.mu1 = mus[0]
@@ -1516,5 +1551,29 @@ class ActorCriticAgent:
 
         self.latency = self.delta / (1 + np.random.uniform(1e-6, 1))
 
-
+    
+    def save_models(self):
+        self.policy.save_checkpoint()
+        self.qf.save_checkpoint()
+        self.vf.save_checkpoint()
+        #self.target_vf.save_checkpoint()
+        
+        
+    def load_models(self, file_policy, file_qf, file_vf):
+        self.policy.load_checkpoint(file_policy)
+        self.qf.load_checkpoint(file_qf)
+        self.vf.load_checkpoint(file_vf)
+        #self.target_vf.load_checkpoint()
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
