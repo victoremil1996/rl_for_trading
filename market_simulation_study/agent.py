@@ -1411,8 +1411,9 @@ class ActorCriticAgent:
         NOT COMPLETELY SURE ABOUT THE LOSS FUNCTION (MAYBE IT SHOULD BE MULTIPLIED BY MINUS 1)
         """
         advantage = new_q_values - state_values
-        policy_loss = (log_pis * (log_pis - advantage.detach())).mean()
-
+        #policy_loss = (log_pis * (log_pis - advantage.detach())).mean()
+        policy_loss = (log_pis * (advantage.detach() - log_pis)).mean()
+        
         """
         Parameter updates using gradient descent
         """
@@ -1483,17 +1484,19 @@ class ActorCriticAgent:
         """
         state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
         if exploration_mode:
-            # action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
-            #                        np.abs(np.random.normal(scale = 0.01)),  # sell_price
-            #                        np.random.randint(0, 5),  # buy_volume
-            #                        np.random.randint(0, 5)   # sell_volume
-            #                        ])
-            action_p = self.policy.get_action(state_features)
             action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
-                                   np.abs(np.random.normal(scale = 0.01)),
-                                   action_p[2],
-                                   action_p[3]
-                                   ])
+                                    np.abs(np.random.normal(scale = 0.01)),  # sell_price
+                                    np.random.randint(0, 5),  # buy_volume
+                                    np.random.randint(0, 5)   # sell_volume
+                                    ])
+            #================ UNCOMMENT BELOW AND COMMENT ABOVE TO ONLY RANDOM SAMPLE PRICES ================#
+            
+            # action_p = self.policy.get_action(state_features)
+            # action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
+            #                        np.abs(np.random.normal(scale = 0.01)),
+            #                        action_p[2],
+            #                        action_p[3]
+            #                        ])
             
             # action = torch.cat((action_mu, action_p[2], action_p[3]))
         else:
@@ -1517,18 +1520,19 @@ class ActorCriticAgent:
             raise NotImplementedError("No terminal state definition")
 
         if exploration_mode:
-            # new_action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
-            #                        np.abs(np.random.normal(scale = 0.01)),  # sell_price
-            #                        np.random.randint(0, 5),  # buy_volume
-            #                        np.random.randint(0, 5)   # sell_volume
-            #                        ])
-
-            action_p = self.policy.get_action(state_features)
             new_action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
-                                   np.abs(np.random.normal(scale = 0.01)),
-                                   action_p[2],
-                                   action_p[3]
-                                   ])
+                                    np.abs(np.random.normal(scale = 0.01)),  # sell_price
+                                    np.random.randint(0, 5),  # buy_volume
+                                    np.random.randint(0, 5)   # sell_volume
+                                    ])
+
+            #================ UNCOMMENT BELOW AND COMMENT ABOVE TO ONLY RANDOM SAMPLE PRICES ================#
+            # action_p = self.policy.get_action(state_features)
+            # new_action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
+            #                        np.abs(np.random.normal(scale = 0.01)),
+            #                        action_p[2],
+            #                        action_p[3]
+            #                        ])
             
         else:
             new_action, mus, ps = self.policy.get_action(self.state_features, save_mu = True)
@@ -1559,7 +1563,13 @@ class ActorCriticAgent:
         #self.target_vf.save_checkpoint()
         
         
-    def load_models(self, file_policy, file_qf, file_vf):
+    def load_models(self, file_policy = "", file_qf = "", file_vf = ""):
+        if file_policy == "":
+            file_policy = self.policy.checkpoint_file
+        if file_qf == "":
+            file_qf = self.qf.checkpoint_file
+        if file_vf == "":
+            file_vf = self.vf.checkpoint_file        
         self.policy.load_checkpoint(file_policy)
         self.qf.load_checkpoint(file_qf)
         self.vf.load_checkpoint(file_vf)
