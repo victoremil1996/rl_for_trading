@@ -1046,7 +1046,7 @@ class ActionValueNetwork(nn.Module):
                  chkpt_dir = 'nn_models', name = 'gaus_bin'):
         super(ActionValueNetwork, self).__init__()
         
-        self.checkpoint_file = os.path.join(chkpt_dir,name+'_nn')
+        self.checkpoint_file = os.path.join(chkpt_dir,name)
         self.input_dims = input_dims
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)  # Fully connected layer 1 / Hidden layer 1
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)  # Hidden layer 2
@@ -1162,7 +1162,7 @@ class GaussianBinomialPolicyNetwork(nn.Module):
                  chkpt_dir = 'nn_models', name = 'gaus_bin'):
         super(GaussianBinomialPolicyNetwork, self).__init__()
         
-        self.checkpoint_file = os.path.join(chkpt_dir,name+'_nn')
+        self.checkpoint_file = os.path.join(chkpt_dir,name)
         self.input_dims = input_dims
         self.action_dims = action_dims
         self.soft_clamp_function = soft_clamp_function
@@ -1329,7 +1329,9 @@ class ActorCriticAgent:
 
         #self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action_value]), low=torch.Tensor([policy.min_action_value]))
         self.eval_deterministic = eval_deterministic
-
+        self.vf_loss_mem = []
+        self.qf_loss_mem = []
+        self.policy_loss_mem = []
 
         self.mu1, self.mu2, self.mu3, self.mu4 = 0, 0, 0, 0
 
@@ -1378,6 +1380,7 @@ class ActorCriticAgent:
         states = batch['states']
         actions = batch['actions']
         rewards = batch['rewards']
+        #rewards = batch['discounted_rewards']
         next_states = batch['next_states']
         terminals = batch['terminals']
 
@@ -1398,21 +1401,25 @@ class ActorCriticAgent:
         """
         state_value_target = new_q_values  # The state should represent the value taking the best action
         vf_loss = (state_value_target.detach() - state_values).pow(2).mean()
-
+        self.vf_loss_mem.append(vf_loss.detach().numpy())
+        
         """
         Action Value Losses - Critic
         use temporal difference and approx TD error, see Silver slide set 7 (slide 326).
         """
         q_targets = rewards + self.discount_factor * (1 - terminals) * next_state_values
         qf_loss = (q_targets.detach() - q_values).pow(2).mean()
+        self.qf_loss_mem.append(qf_loss.detach().numpy())
 
         """
         Policy Losses - Actor  
         NOT COMPLETELY SURE ABOUT THE LOSS FUNCTION (MAYBE IT SHOULD BE MULTIPLIED BY MINUS 1)
         """
         advantage = new_q_values - state_values
-        #policy_loss = (log_pis * (log_pis - advantage.detach())).mean()
-        policy_loss = (log_pis * (advantage.detach() - log_pis)).mean()
+        #policy_loss = -(log_pis * (log_pis - advantage.detach())).mean()
+        #policy_loss = (log_pis * (advantage.detach() - log_pis)).mean()
+        policy_loss = -(log_pis * (advantage.detach())).mean()
+        self.policy_loss_mem.append(policy_loss.detach().numpy())
         
         """
         Parameter updates using gradient descent
@@ -1484,8 +1491,8 @@ class ActorCriticAgent:
         """
         state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
         if exploration_mode:
-            action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
-                                    np.abs(np.random.normal(scale = 0.01)),  # sell_price
+            action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
+                                   np.random.normal(scale = 0.01),  # sell_price
                                     np.random.randint(0, 5),  # buy_volume
                                     np.random.randint(0, 5)   # sell_volume
                                     ])
@@ -1520,8 +1527,8 @@ class ActorCriticAgent:
             raise NotImplementedError("No terminal state definition")
 
         if exploration_mode:
-            new_action = torch.tensor([-np.abs(np.random.normal(scale = 0.01)),  # buy_price
-                                    np.abs(np.random.normal(scale = 0.01)),  # sell_price
+            new_action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
+                                    np.random.normal(scale = 0.01),  # sell_price
                                     np.random.randint(0, 5),  # buy_volume
                                     np.random.randint(0, 5)   # sell_volume
                                     ])
