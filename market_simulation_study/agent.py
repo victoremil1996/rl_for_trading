@@ -170,7 +170,7 @@ class RandomAgent(Agent):
         :return: buy price
         """
         buy_price = self.random_agent_price * (
-                    1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
+                1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
         buy_price = np.maximum(buy_price, 0)
         return buy_price
 
@@ -182,7 +182,7 @@ class RandomAgent(Agent):
         :return: sell price
         """
         sell_price = self.random_agent_price * (
-                    1 + np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
+                1 + np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
         sell_price = np.maximum(sell_price, 0)
         return sell_price
 
@@ -395,7 +395,7 @@ class InvestorAgent(Agent):
             self.buy_price = self.calculate_buy_price(state)
 
         elif will_sell and self.orders_in_queue == 0:  # starts to sell
-            self.orders_in_queue = int(self.n_orders/2) - 1
+            self.orders_in_queue = int(self.n_orders / 2) - 1
             self.sell_price = self.calculate_sell_price(state)
 
         # Update volume
@@ -765,7 +765,7 @@ class RLAgent(Agent):
         self.state_size = state_size
         self.gamma = gamma
         self.nn_parameters = nn_parameters
-        self.data = np.ndarray(shape = (0, self.nn_parameters["n_features"]))
+        self.data = np.ndarray(shape=(0, self.nn_parameters["n_features"]))
         if function_approximator == "rnn":
             self.model = self.rnn_model()
 
@@ -777,7 +777,7 @@ class RLAgent(Agent):
         :return: buy price
         """
         buy_price = self.random_agent_price * (
-                    1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1] - 0.02))
+                1 - np.random.uniform(low=self.noise_range[0], high=self.noise_range[1] - 0.02))
         buy_price = np.maximum(buy_price, 0)
         return buy_price
 
@@ -789,7 +789,7 @@ class RLAgent(Agent):
         :return: sell price
         """
         sell_price = self.random_agent_price * (
-                    1 + np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
+                1 + np.random.uniform(low=self.noise_range[0], high=self.noise_range[1]))
         sell_price = np.maximum(sell_price, 0)
         return sell_price
 
@@ -839,43 +839,44 @@ class RLAgent(Agent):
         last_pnl = self.pnl
         self.calculate_profit_and_loss(state)
         self.reward = self.pnl - last_pnl
-        #ma1 = np.average(state["market_prices"][-50:])
-        #ma2 = np.average(state["market_prices"][-200:])
-        #trend_feature = ma1 / ma2
-        #spread_feature = np.round(state["mean_buy_price"] - state["mean_sell_price"], 1)
+        # ma1 = np.average(state["market_prices"][-50:])
+        # ma2 = np.average(state["market_prices"][-200:])
+        # trend_feature = ma1 / ma2
+        # spread_feature = np.round(state["mean_buy_price"] - state["mean_sell_price"], 1)
         features = self.create_features(self, state)
         # data = np.array([ma1, ma2, trend_feature, spread_feature, state["market_prices"][-1],
         #                      self.position, self.buy_volume, self.sell_volume, self.buy_price,
         #                      self.sell_price, self.reward])
         data = np.array([features[0], features[1], features[2], features[3], state["market_prices"][-1],
-                             self.position, self.buy_volume, self.sell_volume, self.buy_price,
-                             self.sell_price, self.reward])
+                         self.position, self.buy_volume, self.sell_volume, self.buy_price,
+                         self.sell_price, self.reward])
         self.data = np.vstack((self.data, data))
-        
+
     def data_to_feather(self) -> NoReturn:
-        pd.DataFrame(self.data, columns = ['ma1', 'ma2', 'trend_feature',
-                                               'spread_feature', 'market_prices', 'position',
-                                               'buy_volume', 'sell_volume', 'buy_price',
-                                               'sell_price', 'reward']).to_feather('data/data.feather')
+        pd.DataFrame(self.data, columns=['ma1', 'ma2', 'trend_feature',
+                                         'spread_feature', 'market_prices', 'position',
+                                         'buy_volume', 'sell_volume', 'buy_price',
+                                         'sell_price', 'reward']).to_feather('data/data.feather')
 
     def scale_and_reshape(self, data):
         feature_vector = data.iloc[:, :-1]
         col_names = feature_vector.columns
         scaler = MinMaxScaler(feature_range=(0, 1))
-        feature_vector = pd.DataFrame(scaler.fit_transform(feature_vector), columns = col_names)
+        feature_vector = pd.DataFrame(scaler.fit_transform(feature_vector), columns=col_names)
 
         # RESHAPING
-        rows_x = len(feature_vector[:,0])
+        rows_x = len(feature_vector[:, 0])
         x = feature_vector[range(self.nn_parameters["n_timepoints"] * rows_x), :]
-        feature_vector_reshaped = np.reshape(x, (rows_x, self.nn_parameters["n_timepoints"], self.nn_parameters["n_features"]))
+        feature_vector_reshaped = np.reshape(x, (
+            rows_x, self.nn_parameters["n_timepoints"], self.nn_parameters["n_features"]))
         return feature_vector_reshaped
 
     def train_model(self):
 
-        data = pd.DataFrame(self.data, columns = ['ma1', 'ma2', 'trend_feature',
-                                        'spread_feature', 'market_prices', 'position',
-                                        'buy_volume', 'sell_volume', 'buy_price',
-                                        'sell_price', 'reward'])
+        data = pd.DataFrame(self.data, columns=['ma1', 'ma2', 'trend_feature',
+                                                'spread_feature', 'market_prices', 'position',
+                                                'buy_volume', 'sell_volume', 'buy_price',
+                                                'sell_price', 'reward'])
         reward_vector = data.iloc[:, -1].values
 
         disc_reward = np.zeros_like(reward_vector)
@@ -886,15 +887,18 @@ class RLAgent(Agent):
 
         feature_vector_reshaped = self.scale_and_reshape(data)
         # TRAIN
-        self.model.fit(feature_vector_reshaped, disc_reward, epochs=self.nn_parameters["n_epochs"], batch_size=1, verbose=2)
-
+        self.model.fit(feature_vector_reshaped, disc_reward, epochs=self.nn_parameters["n_epochs"], batch_size=1,
+                       verbose=2)
 
     def rnn_model(self):
         model = Sequential()
         #     model.add(SimpleRNN(hidden_units, input_shape=input_shape,
         #                         activation=activation[0]))
-        model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True, return_sequences=True))
-        model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True))
+        model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(
+            self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True,
+                       return_sequences=True))
+        model.add(LSTM(self.nn_parameters["n_units"], batch_input_shape=(
+            self.nn_parameters["batch_size"], self.time_steps, self.nn_parameters["n_features"]), stateful=True))
         model.add(Dense(units=self.nn_parameters["dense_units"], activation="linear"))
         model.compile(loss='mean_squared_error', optimizer='adam')
         return model
@@ -903,7 +907,7 @@ class RLAgent(Agent):
         state_feature_vector = self.create_features(state)
         data = pd.DataFrame(state_feature_vector)
         state_feature_vector_reshaped = self.scale_and_reshape(data)
-        prediction = self.model.predict(state_feature_vector_reshaped, batch_size = 1)
+        prediction = self.model.predict(state_feature_vector_reshaped, batch_size=1)
         return prediction
 
     def take_action(self):
@@ -914,18 +918,17 @@ class RLAgent(Agent):
 
     def nn(self, hidden_units, dense_units, input_shape, activation):
         model = Sequential()
-        model.add(SimpleRNN(hidden_units, input_shape=input_shape, 
+        model.add(SimpleRNN(hidden_units, input_shape=input_shape,
                             activation=activation[0]))
         model.add(Dense(units=dense_units, activation=activation[1]))
         model.compile(loss='mean_squared_error', optimizer='adam')
         return model
 
-
     def take_action(self, state) -> NoReturn:
         # Volume and price range 
         vol_range_lower, vol_range_upper = 0, 10
         price_range_lower, price_range_upper = state["market_prices"][-1] * 0.99, state["market_prices"][-1] * 1.01
-        
+
         # Update volumes
         self.buy_volume = random.randint(vol_range_lower, vol_range_upper)
         self.sell_volume = random.randint(vol_range_lower, vol_range_upper)
@@ -935,8 +938,8 @@ class RLAgent(Agent):
         self.sell_price = random.uniform(price_range_lower, price_range_upper)
 
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
-                              columns=["buy_price", "buy_volume", "latency", "agent_id"],
-                              index=[self.agent_id])
+                                      columns=["buy_price", "buy_volume", "latency", "agent_id"],
+                                      index=[self.agent_id])
         self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
                                        columns=["sell_price", "sell_volume", "latency", "agent_id"],
                                        index=[self.agent_id])
@@ -960,6 +963,7 @@ class Memory:
     """
     Memory class to perform experience replay
     """
+
     def __init__(self, max_size: int):
 
         self.max_size = max_size
@@ -1096,7 +1100,7 @@ class GaussianPolicyNetwork(nn.Module):
 
         return mu, sigma
 
-    def get_action(self, state, eval_deterministic=False, save_mu = False):
+    def get_action(self, state, eval_deterministic=False, save_mu=False):
 
         mu, sigma = self.forward(state)
         print("sigma: ", sigma)
@@ -1111,7 +1115,7 @@ class GaussianPolicyNetwork(nn.Module):
         action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
-            
+
         if save_mu:
             return action, mu, sigma
 
@@ -1145,11 +1149,12 @@ class GaussianPolicyNetwork(nn.Module):
 
         return action, log_prob
 
+
 class GaussianBinomialPolicyNetwork(nn.Module):
 
     def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
                  max_action_value_two: int = 0, min_action_value_two: int = 15,
-                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None, sigma = 0.05):
+                 fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None, sigma=0.05):
         super(GaussianBinomialPolicyNetwork, self).__init__()
 
         self.input_dims = input_dims
@@ -1167,9 +1172,9 @@ class GaussianBinomialPolicyNetwork(nn.Module):
 
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)
-        self.mu_layer = nn.Linear(fc2_dims, int(self.action_dims/2))
+        self.mu_layer = nn.Linear(fc2_dims, int(self.action_dims / 2))
         # self.log_sigma_layer = nn.Linear(fc2_dims, self.action_dims)
-        self.p_layer = nn.Linear(fc2_dims, int(self.action_dims/2))
+        self.p_layer = nn.Linear(fc2_dims, int(self.action_dims / 2))
 
     def forward(self, activation):
         """feed through the network and output mu and sigma vectors"""
@@ -1182,12 +1187,12 @@ class GaussianBinomialPolicyNetwork(nn.Module):
         # log_sigma = log_sigma.clamp(min=self.min_log_sigma, max=self.max_log_sigma)
         # sigma = torch.exp(log_sigma)
 
-        return mu, p#, sigma
+        return mu, p  # , sigma
 
-    def get_action(self, state, eval_deterministic=False, save_mu = False):
+    def get_action(self, state, eval_deterministic=False, save_mu=False):
 
         mu, p = self.forward(state)
-        
+
         if eval_deterministic:
             action_mu = mu.detach()
             action_p = p * self.max_action_value_two
@@ -1196,7 +1201,7 @@ class GaussianBinomialPolicyNetwork(nn.Module):
         else:
             gauss_dist = Normal(loc=mu, scale=self.sigma)
             action_mu = gauss_dist.sample()
-            binomial_dist = Binomial(total_count = self.max_action_value_two, probs = p)
+            binomial_dist = Binomial(total_count=self.max_action_value_two, probs=p)
             action_p = binomial_dist.sample()
 
         action = torch.cat((action_mu, action_p))
@@ -1206,7 +1211,7 @@ class GaussianBinomialPolicyNetwork(nn.Module):
         action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
-            
+
         if save_mu:
             return action, mu, p
 
@@ -1217,21 +1222,21 @@ class GaussianBinomialPolicyNetwork(nn.Module):
         mu, p = self.forward(state)  # Initialize activation with state
         gauss_dist = Normal(loc=mu, scale=self.sigma)
         action_mu = gauss_dist.sample()
-        
-        binomial_dist = Binomial(total_count = self.max_action_value_two, probs = p)
+
+        binomial_dist = Binomial(total_count=self.max_action_value_two, probs=p)
         action_p = binomial_dist.sample()
         action = torch.cat((action_mu, action_p), 1)
         action.detach()
-        
+
         action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         action[-2:] = action[-2:].int()
-        
+
         log_prob_mu = gauss_dist.log_prob(action_mu)
         log_prob_p = binomial_dist.log_prob(action_p)
-        
+
         log_prob = torch.cat((log_prob_mu, log_prob_p), 1)
-        
+
         return action, log_prob
 
     def random_sample(self, state):
@@ -1265,12 +1270,12 @@ class ActorCriticAgent:
                  num_training_episode_steps=1000,
                  eval_deterministic=True,
                  training_on_policy=False,
-                 vf: nn.Module=None,
-                 vf_optimiser: Optimizer=None,
+                 vf: nn.Module = None,
+                 vf_optimiser: Optimizer = None,
                  agent_id=0,
                  delta=1,
                  init_state=None,
-                 position_penalty = 1):
+                 position_penalty=1):
 
         self.agent_class = "ActorCritic"
         self.agent_id = agent_id
@@ -1309,18 +1314,17 @@ class ActorCriticAgent:
         self.training_on_policy = training_on_policy
         self.memory = Memory(max_size=max_memory_size)
         self.state_features = self.get_state_features(init_state)
-        self.position_penalty = position_penalty 
+        self.position_penalty = position_penalty
 
-        #self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action_value]), low=torch.Tensor([policy.min_action_value]))
+        # self.pretraining_policy = Uniform(high=torch.Tensor([policy.max_action_value]), low=torch.Tensor([policy.min_action_value]))
         self.eval_deterministic = eval_deterministic
-
 
         self.mu1, self.mu2, self.mu3, self.mu4 = 0, 0, 0, 0
 
+        # self.loss = nn.MSELoss()
+        # self.R_av = None
+        # self.R_tot = 0
 
-        #self.loss = nn.MSELoss()
-        #self.R_av = None
-        #self.R_tot = 0
     def reset(self):
         """
         Resets all attributes related to the market, pnl ect.
@@ -1435,7 +1439,7 @@ class ActorCriticAgent:
 
         self.pnl = realized_value + unrealized_value
 
-    def get_state_features(self, state: dict, n_returns = 5):
+    def get_state_features(self, state: dict, n_returns=5):
         """
         Extract features from market state information
 
@@ -1443,12 +1447,13 @@ class ActorCriticAgent:
         :return: state features
         """
         features = []
-        returns_relative = np.array(state["market_prices"][-n_returns:]) / np.array(state["market_prices"][-n_returns-1:-1]) - 1
-        #returns = np.array(state["market_prices"][-n_returns:]) - np.array(state["market_prices"][-n_returns - 1:-1])
+        returns_relative = np.array(state["market_prices"][-n_returns:]) / np.array(
+            state["market_prices"][-n_returns - 1:-1]) - 1
+        # returns = np.array(state["market_prices"][-n_returns:]) - np.array(state["market_prices"][-n_returns - 1:-1])
         average_return = np.average(returns_relative[-100:])
-        local_volatility = np.average((returns_relative[-10:]-average_return)**2)
+        local_volatility = np.average((returns_relative[-10:] - average_return) ** 2)
         for i in range(n_returns):
-            #features.append(state["market_prices"][-i])
+            # features.append(state["market_prices"][-i])
             features.append(returns_relative.tolist()[i])
         features.append(state["volume"])
         features.append(state["total_buy_volume"])
@@ -1458,7 +1463,6 @@ class ActorCriticAgent:
         features.append(local_volatility)
         features.append(self.position)
 
-
         return torch.tensor(features)
 
     def update(self, state: dict, exploration_mode=False):
@@ -1467,10 +1471,10 @@ class ActorCriticAgent:
         """
         state_features = self.state_features if self.state_features is not None else self.get_state_features(state)
         if exploration_mode:
-            action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
-                                   np.random.normal(scale = 0.01),  # sell_price
+            action = torch.tensor([np.random.normal(scale=0.01),  # buy_price
+                                   np.random.normal(scale=0.01),  # sell_price
                                    np.random.randint(0, 10),  # buy_volume
-                                   np.random.randint(0, 10)   # sell_volume
+                                   np.random.randint(0, 10)  # sell_volume
                                    ])
         else:
             action = self.policy.get_action(state_features)
@@ -1479,7 +1483,7 @@ class ActorCriticAgent:
         self.calculate_profit_and_loss(state=state)
         new_pnl = self.pnl
         position = self.position
-        reward = torch.tensor([new_pnl - pnl - self.position_penalty * position**2])
+        reward = torch.tensor([new_pnl - pnl - self.position_penalty * position ** 2])
         next_state_features = self.get_state_features(state)
         terminal = torch.tensor(0)
 
@@ -1493,13 +1497,13 @@ class ActorCriticAgent:
             raise NotImplementedError("No terminal state definition")
 
         if exploration_mode:
-            new_action = torch.tensor([np.random.normal(scale = 0.01),  # buy_price
-                                   np.random.normal(scale = 0.01),  # sell_price
-                                   np.random.randint(0, 10),  # buy_volume
-                                   np.random.randint(0, 10)   # sell_volume
-                                   ])
+            new_action = torch.tensor([np.random.normal(scale=0.01),  # buy_price
+                                       np.random.normal(scale=0.01),  # sell_price
+                                       np.random.randint(0, 10),  # buy_volume
+                                       np.random.randint(0, 10)  # sell_volume
+                                       ])
         else:
-            new_action, mus, ps = self.policy.get_action(self.state_features, save_mu = True)
+            new_action, mus, ps = self.policy.get_action(self.state_features, save_mu=True)
             self.mu1 = mus[0]
             self.mu2 = mus[1]
             self.mu3 = ps[0]
@@ -1518,6 +1522,3 @@ class ActorCriticAgent:
                                        index=[self.agent_id])
 
         self.latency = self.delta / (1 + np.random.uniform(1e-6, 1))
-
-
-
