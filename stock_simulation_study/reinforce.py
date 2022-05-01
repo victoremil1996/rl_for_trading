@@ -68,7 +68,7 @@ OUTPUT_DIR = 'model_output/trading/'
 class Agent:
     """abstract base class for agents"""
 
-    def __init__(self, state_size, action_size, filename="model",
+    def __init__(self, state_size, action_size, filename="model", mu_zero=True,
                  *args, **kwargs):
         self.state_size = state_size
         self.action_size = action_size
@@ -76,6 +76,7 @@ class Agent:
         self.timestep = 0
         self.total_reward = 0
         self.save_interval = 10
+        self.mu_zero = mu_zero
 
         raise NotImplementedError
 
@@ -125,12 +126,12 @@ class Agent:
         self.reset()
         self.state = env.reset(self.state_size)
         self.done = False
-
+        mu_zero = self.mu_zero
         while not self.done:
             if render:
                 env.render()
             self.action = self.act(self.state.reshape([1, self.state_size]))
-            self.next_state, self.reward, self.done, _ = env.step(self.action, self.state_size)
+            self.next_state, self.reward, self.done, _ = env.step(self.action, self.state_size, mu_zero)
             self.total_reward += self.reward
 
             self.remember()
@@ -236,7 +237,7 @@ class REINFORCE_Agent(Agent):
     def __init__(self, state_size=4, action_size=5, learning_rate=0.0005,
                  discount_rate=0, n_hidden_layers=2, hidden_layer_size=16,
                  activation='relu', reg_penalty=0, dropout=0, filename="kreinforce",
-                 verbose=True, epsilon = 0.1):
+                 verbose=True, epsilon=0.1, mu_zero=False):
         self.state_size = state_size
         self.action_size = action_size
         self.action_space = list(range(action_size))
@@ -250,7 +251,7 @@ class REINFORCE_Agent(Agent):
         self.dropout = dropout
         self.verbose = verbose
         self.filename = filename
-
+        self.mu_zero = mu_zero
         self.train_model, self.predict_model = self.policy_model()
         self.results = []
         self.save_interval = 10
@@ -296,7 +297,7 @@ class REINFORCE_Agent(Agent):
             if i and self.dropout:
                 last_layer = Dropout(self.dropout, name="Dropout%02d" % i)(last_layer)
 
-            last_layer = Dense(units=self.hidden_layer_size,
+            last_layer = Dense(units=int(self.hidden_layer_size/(i+1)),
                                activation=self.activation,
                                kernel_initializer=glorot_uniform(),
                                kernel_regularizer=keras.regularizers.l2(self.reg_penalty),
@@ -380,14 +381,14 @@ class REINFORCE_Agent(Agent):
     #     return retarray
 
     def save(self):
-        "save agent: pickle self and use Keras native save model"
+        """save agent: pickle self and use Keras native save model"""
         fullname = "%s%s%05d" % (OUTPUT_DIR, self.filename, len(self.results))
         self.predict_model.save("%s_predict.h5" % fullname)
         # can't save / load train model due to custom loss
         pickle.dump(self, open("%s.p" % fullname, "wb"))
 
     def load(filename, memory=True):
-        "load saved agent"
+        """load saved agent"""
         self = pickle.load(open("%s.p" % filename, "rb"))
         self.predict_model = load_model("%s_predict.h5" % filename)
         print("loaded %d results, %d rows of memory, epsilon %.4f" % (len(self.results),
