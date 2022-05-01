@@ -229,7 +229,7 @@ class RandomAgent(Agent):
         """
         # Update latency
 
-        self.latency = self.delta + np.random.uniform(1e-6, 1)
+        self.latency = self.delta + np.random.uniform(1 + 1e-6, 2)
 
         # Update prices and volume
         self.random_agent_price = state["market_prices"][-1] * (1 + np.random.normal(loc=0, scale=self.mid_price_noise))
@@ -364,7 +364,7 @@ class InvestorAgent(Agent):
         :return: NoReturn
         """
         # Update latency
-        self.latency = self.delta + np.random.uniform(1 + 1e-6, 2)
+        self.latency = self.delta + np.random.uniform(0 + 1e-6, 1)
 
         # instantiate no prices
         self.buy_price = np.nan
