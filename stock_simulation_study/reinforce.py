@@ -129,8 +129,8 @@ class Agent:
         while not self.done:
             if render:
                 env.render()
-            self.action = self.act(self.state.reshape([1, self.state_size]))
-            self.next_state, self.reward, self.done, _ = env.step(self.action, self.state_size)
+            self.action = self.act(self.state.reshape([1, self.state_size]), env)
+            self.next_state, self.reward, self.done, _ = env.step(self.action, self.state_size, self.mu_zero)
             self.total_reward += self.reward
 
             self.remember()
@@ -236,7 +236,7 @@ class REINFORCE_Agent(Agent):
     def __init__(self, state_size=4, action_size=5, learning_rate=0.0005,
                  discount_rate=0, n_hidden_layers=2, hidden_layer_size=16,
                  activation='relu', reg_penalty=0, dropout=0, filename="kreinforce",
-                 verbose=True, epsilon = 0.1):
+                 verbose=True, epsilon = 0.1, mu_zero = False):
         self.state_size = state_size
         self.action_size = action_size
         self.action_space = list(range(action_size))
@@ -256,6 +256,7 @@ class REINFORCE_Agent(Agent):
         self.save_interval = 10
         self.reset()
         self.epsilon = epsilon
+        self.mu_zero = mu_zero
 
     def reset(self):
         """reset agent for start of episode"""
@@ -293,10 +294,11 @@ class REINFORCE_Agent(Agent):
                                    self.dropout,
                                    ))
             # add dropout, but not on inputs, only between hidden layers
-            if i and self.dropout:
+            if i > 0 and self.dropout:
                 last_layer = Dropout(self.dropout, name="Dropout%02d" % i)(last_layer)
 
-            last_layer = Dense(units=self.hidden_layer_size,
+            #last_layer = Dense(units=self.hidden_layer_size,
+            last_layer = Dense(units=int(self.hidden_layer_size / (i + 1)),
                                activation=self.activation,
                                kernel_initializer=glorot_uniform(),
                                kernel_regularizer=keras.regularizers.l2(self.reg_penalty),
@@ -313,13 +315,34 @@ class REINFORCE_Agent(Agent):
 
         return train_model, predict_model
 
-    def act(self, state):
+    def act(self, state, env):
         """pick an action using predict_model"""
         probabilities = self.predict_model.predict(state)
         if random.random() < self.epsilon:
-            action = random.randint(0, self.action_size-1)
+            min_rand = 0
+            max_rand = 4
+            if env.pos_size >= 10:
+                max_rand = 2
+            elif env.pos_size <= -10:
+                min_rand = 2
+            action = random.randint(min_rand, max_rand)
         else:
-            action = np.random.choice(self.action_space, p=probabilities[0])
+            if env.pos_size <= -10:
+                actions = self.action_space[2:]
+                probs = probabilities[0][2:] / np.sum(probabilities[0][2:])
+                if np.any(np.isnan(probs)):
+                    probs = [1, 0, 0]
+                action = np.random.choice(actions, p=probs)
+            elif env.pos_size >= 10:
+                actions = self.action_space[:3]
+                probs = probabilities[0][:3] / np.sum(probabilities[0][:3])
+                if np.any(np.isnan(probs)):
+                    probs = [0, 0, 1]
+                action = np.random.choice(actions, p=probs)
+            else:
+                action = np.random.choice(self.action_space, p=probabilities[0])
+
+
         return action
 
     def remember(self):
