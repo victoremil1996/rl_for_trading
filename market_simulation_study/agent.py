@@ -216,7 +216,10 @@ class RandomAgent(Agent):
         :return: total profit and loss
         """
         realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
-        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+        if self.position < 0:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 + state["slippage"])
+        else:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
@@ -352,8 +355,10 @@ class InvestorAgent(Agent):
         :return: total profit and loss
         """
         realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
-        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
-
+        if self.position < 0:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 + state["slippage"])
+        else:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
         self.pnl = realized_value + unrealized_value
 
     def update(self, state: dict) -> NoReturn:
@@ -511,7 +516,10 @@ class TrendAgent(Agent):
         :return: total profit and loss
         """
         realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
-        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+        if self.position < 0:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 + state["slippage"])
+        else:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
@@ -679,7 +687,10 @@ class MarketMakerAgent(Agent):
         :return:
         """
         realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
-        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+        if self.position < 0:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 + state["slippage"])
+        else:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
@@ -823,7 +834,10 @@ class RLAgent(Agent):
         :return: total profit and loss
         """
         realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
-        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+        if self.position < 0:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 + state["slippage"])
+        else:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
@@ -1435,7 +1449,10 @@ class ActorCriticAgent:
         :return: total profit and loss
         """
         realized_value = np.sum(self.all_trades[:, 0] * self.all_trades[:, 1])
-        unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
+        if self.position < 0:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 + state["slippage"])
+        else:
+            unrealized_value = self.position * state["market_prices"][-1] * (1 - state["slippage"])
 
         self.pnl = realized_value + unrealized_value
 
