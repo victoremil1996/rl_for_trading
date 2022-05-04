@@ -60,6 +60,16 @@ class Agent(abc.ABC):
     #     self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
     #                                   columns = ["sell_price", "sell_volume", "latency", "agent_id"])
     @abc.abstractmethod
+    def reset(self):
+        """
+        resets
+
+        :param state:
+        :return:
+        """
+        raise NotImplementedError("Abstract Class")
+
+    @abc.abstractmethod
     def calculate_buy_price(self, state: dict) -> float:
         """
         Calculates buy price
@@ -161,6 +171,14 @@ class RandomAgent(Agent):
                                       columns=["buy_price", "buy_volume", "latency", "agent_id"])
         self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
                                        columns=["sell_price", "sell_volume", "latency", "agent_id"])
+
+    def reset(self):
+        """
+        resets attributes
+        """
+        self.all_trades = np.array([0, 0])
+        self.pnl = None
+        self.position = 0
 
     def calculate_buy_price(self, state: dict) -> float:
         """
@@ -302,6 +320,14 @@ class InvestorAgent(Agent):
         self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
                                        columns=["sell_price", "sell_volume", "latency", "agent_id"],
                                        index=[self.agent_id])
+
+    def reset(self):
+        """
+        resets attributes
+        """
+        self.all_trades = np.array([0, 0])
+        self.pnl = None
+        self.position = 0
 
     def calculate_buy_price(self, state: dict) -> float:
         """
@@ -462,6 +488,14 @@ class TrendAgent(Agent):
                                        columns=["sell_price", "sell_volume", "latency", "agent_id"],
                                        index=[self.agent_id])
 
+    def reset(self):
+        """
+        resets attributes
+        """
+        self.all_trades = np.array([0, 0])
+        self.pnl = None
+        self.position = 0
+
     def calculate_buy_price(self, state: dict) -> float:
         """
         Calculates buy price
@@ -603,6 +637,14 @@ class MarketMakerAgent(Agent):
         self.sell_order = pd.DataFrame(np.array([[self.sell_price, self.sell_volume, self.latency, self.agent_id]]),
                                        columns=["sell_price", "sell_volume", "latency", "agent_id"],
                                        index=[self.agent_id])
+
+    def reset(self):
+        """
+        resets attributes
+        """
+        self.all_trades = np.array([0, 0])
+        self.pnl = None
+        self.position = 0
 
     def calculate_volatility(self, state: dict, n_observations=10) -> float:
         """
