@@ -148,7 +148,10 @@ class RandomAgent(Agent):
                  buy_volume: float = None,
                  sell_volume: float = None,
                  noise_range: Tuple = None,
-                 mid_price_noise: float = 0.001):
+                 mid_price_noise: float = 0.001,
+                 n_coin_flips: int = 3,
+                 coin_bias_buy: float = 0.5,
+                 coin_bias_sell: float = 0.5):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
@@ -166,6 +169,9 @@ class RandomAgent(Agent):
         self.sell_volume = sell_volume
         self.mid_price_noise = mid_price_noise
         self.noise_range = noise_range if noise_range else [0.001, 0.005]
+        self.n_coin_flips = n_coin_flips
+        self.coin_bias_buy = coin_bias_buy
+        self.coin_bias_sell = coin_bias_sell
         self.random_agent_price = None
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
                                       columns=["buy_price", "buy_volume", "latency", "agent_id"])
@@ -211,7 +217,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.binomial(3, 0.55)
+        volume = np.random.binomial(self.n_coin_flips, self.coin_bias_buy)
 
         return volume
 
@@ -222,7 +228,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.binomial(3, 0.55)
+        volume = np.random.binomial(self.n_coin_flips, self.coin_bias_sell)
 
         return volume
 
@@ -406,8 +412,8 @@ class InvestorAgent(Agent):
         if self.can_short:
             sell_is_possible = True
         else:
-            sell_is_possible = (self.position >= self.n_orders * self.sell_volume)
-        will_sell = (np.random.uniform(0, 1) < self.intensity) and sell_is_possible
+            sell_is_possible = (self.position >= self.n_orders / 2 * self.sell_volume)
+        will_sell = (np.random.uniform(0, 95) < self.intensity) and sell_is_possible
 
         if self.orders_in_queue == 0:
             self.is_buying = False
@@ -503,7 +509,7 @@ class TrendAgent(Agent):
         :param state: market state information
         :return: buy price
         """
-        noise = np.random.normal(loc=0, scale=0.01)
+        noise = np.random.normal(loc=0, scale=0.0001)
         buy_price = state["market_prices"][-1] * (1 + self.price_margin + noise)
         buy_price = np.maximum(buy_price, 0)
         return buy_price
@@ -515,7 +521,7 @@ class TrendAgent(Agent):
         :param state: market state information
         :return: sell price
         """
-        noise = np.random.normal(loc=0, scale=0.01)
+        noise = np.random.normal(loc=0, scale=0.0001)
         sell_price = state["market_prices"][-1] * (1 + noise)
         sell_price = np.maximum(sell_price, 0)
         return sell_price
@@ -612,7 +618,8 @@ class MarketMakerAgent(Agent):
                  pnl: float = None,
                  buy_price: float = None,
                  sell_price: float = None,
-                 all_trades: np.ndarray = None):
+                 all_trades: np.ndarray = None,
+                 n_volume: int = 3):
         """
         Constructor
         :param latency: latency when matching agents in the market environment
@@ -631,6 +638,7 @@ class MarketMakerAgent(Agent):
         self.all_trades = all_trades if all_trades else np.array([[0, 0]])
         self.buy_volume = None
         self.sell_volume = None
+        self.n_volume = n_volume
         self.spread = None
         self.mid_price = None
         self.buy_order = pd.DataFrame(np.array([[self.buy_price, self.buy_volume, self.latency, self.agent_id]]),
@@ -710,7 +718,7 @@ class MarketMakerAgent(Agent):
         :param state:
         :return:
         """
-        buy_volume = 3
+        buy_volume = self.n_volume
         return buy_volume
 
     def calculate_sell_volume(self) -> float:
@@ -720,7 +728,7 @@ class MarketMakerAgent(Agent):
         :param state:
         :return:
         """
-        sell_volume = 3
+        sell_volume = self.n_volume
         return sell_volume
 
     def calculate_profit_and_loss(self, state: dict) -> NoReturn:
