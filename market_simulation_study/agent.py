@@ -161,7 +161,7 @@ class RandomAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0, 0])
+        self.all_trades = all_trades if all_trades else np.array([[0, 0]])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.mid_price_noise = mid_price_noise
@@ -176,7 +176,7 @@ class RandomAgent(Agent):
         """
         resets attributes
         """
-        self.all_trades = np.array([0, 0])
+        self.all_trades = np.array([[0,0]])
         self.pnl = None
         self.position = 0
 
@@ -211,7 +211,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.binomial(2, 0.51)
+        volume = np.random.binomial(3, 0.55)
 
         return volume
 
@@ -222,7 +222,7 @@ class RandomAgent(Agent):
         :param state:
         :return:
         """
-        volume = np.random.binomial(2, 0.5)
+        volume = np.random.binomial(3, 0.55)
 
         return volume
 
@@ -304,7 +304,7 @@ class InvestorAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0, 0])
+        self.all_trades = all_trades if all_trades else np.array([[0, 0]])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.intensity = intensity
@@ -325,7 +325,7 @@ class InvestorAgent(Agent):
         """
         resets attributes
         """
-        self.all_trades = np.array([0, 0])
+        self.all_trades = np.array([[0,0]])
         self.pnl = None
         self.position = 0
 
@@ -474,7 +474,7 @@ class TrendAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0, 0])
+        self.all_trades = all_trades if all_trades else np.array([[0,0]])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.price_margin = price_margin
@@ -492,7 +492,7 @@ class TrendAgent(Agent):
         """
         resets attributes
         """
-        self.all_trades = np.array([0, 0])
+        self.all_trades = np.array([[0,0]])
         self.pnl = None
         self.position = 0
 
@@ -607,6 +607,7 @@ class MarketMakerAgent(Agent):
                  delta: float = None,
                  gamma: float = 0.01,
                  gamma2: float = 0.5,
+                 spread_zero: float = 0.001,
                  position: int = 0,
                  pnl: float = None,
                  buy_price: float = None,
@@ -621,12 +622,13 @@ class MarketMakerAgent(Agent):
         self.delta = delta  # base latency
         self.gamma = gamma  # midprice sensitivity to position size
         self.gamma2 = gamma2  # spread sensitivity to local volatility
+        self.spread_zero = spread_zero
         self.latency = delta
         self.position = position
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0, 0])
+        self.all_trades = all_trades if all_trades else np.array([[0, 0]])
         self.buy_volume = None
         self.sell_volume = None
         self.spread = None
@@ -642,7 +644,7 @@ class MarketMakerAgent(Agent):
         """
         resets attributes
         """
-        self.all_trades = np.array([0, 0])
+        self.all_trades = np.array([[0, 0]])
         self.pnl = None
         self.position = 0
 
@@ -665,7 +667,7 @@ class MarketMakerAgent(Agent):
         :return:
         """
         vol = self.calculate_volatility(state)
-        spread = vol * self.gamma2
+        spread = vol * self.gamma2 + self.spread_zero
         return spread
 
     def calculate_mid_price(self, state: dict) -> float:
@@ -688,7 +690,7 @@ class MarketMakerAgent(Agent):
         :param state:
         :return:
         """
-        buy_price = self.mid_price - self.spread / 2 + np.random.normal(loc=0, scale=0.001)
+        buy_price = self.mid_price - self.spread / 2 + np.random.normal(loc=0, scale=0.0001)
         return buy_price
 
     def calculate_sell_price(self) -> float:
@@ -698,7 +700,7 @@ class MarketMakerAgent(Agent):
         :param state:
         :return:
         """
-        sell_price = self.mid_price + self.spread / 2 + np.random.normal(loc=0, scale=0.001)
+        sell_price = self.mid_price + self.spread / 2 + np.random.normal(loc=0, scale=0.0001)
         return sell_price
 
     def calculate_buy_volume(self) -> float:
@@ -807,7 +809,7 @@ class RLAgent(Agent):
         self.pnl = pnl
         self.buy_price = buy_price
         self.sell_price = sell_price
-        self.all_trades = all_trades if all_trades else np.array([0, 0])
+        self.all_trades = all_trades if all_trades else np.array([[0, 0]])
         self.buy_volume = buy_volume
         self.sell_volume = sell_volume
         self.noise_range = noise_range

@@ -3,8 +3,66 @@ from codelib.stats import weighted_percentile, weighted_skew, weighted_kurtosis,
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from matplotlib import cycler
+import matplotlib as mpl
 import scipy.stats as stats
 from IPython.display import display, clear_output
+
+
+class DefaultStyle:
+
+    """
+    Class the sets the defaults plotting style
+    """
+
+    def __init__(self, plot_size = (12, 6), font_size: float = 15.0):
+
+        """
+        Spills plot style into memory upon instantiation
+
+        Parameters
+        ----------
+        plot_size:
+        The size of the figure as (height, width)
+        font_size:
+        The size of the font on the plot as as float
+        """
+
+        self.colors = list(default_colors.values())
+        self.figsize = plot_size
+        self.font_size = font_size
+        self.legend = True
+        self._font = 'Arial'
+        self._face_color = 'white'
+        self._edge_color = 'white'
+        self._grid_color = '#dddddd'
+        self._tick_color = '.15'
+        self._line_style = '--'
+        self._line_width = 2.0
+        self._tick_dir = 'out'
+        self.save_format = 'pdf'
+        self._spill()
+
+    def _spill(self):
+
+        """
+        Spills rcParams into global memory
+
+        Returns
+        -------
+        None
+        """
+        colors = cycler(color=self.colors)
+        plt.rc('axes', facecolor=self._face_color, axisbelow=True, grid=True, prop_cycle=colors, autolimit_mode='data',
+               xmargin=0, ymargin=0)
+        plt.rc('grid', color=self._grid_color, linestyle=self._line_style)
+        plt.rc('xtick', direction=self._tick_dir, color=self._tick_color)
+        plt.rc('ytick', direction=self._tick_dir, color=self._tick_color)
+        plt.rc('patch', edgecolor=self._edge_color)
+        plt.rc('lines', linewidth=self._line_width)
+        plt.rc('font', family='Arial', size=self.font_size)
+        plt.rc('legend', loc='best', fontsize=self.font_size, fancybox=True, shadow=False)
+        plt.rc('savefig', format=self.save_format)
 
 
 def var_cvar_plot(x, probs=None, save_fig_title=False, color="blue", title=None, **kwargs):
@@ -56,7 +114,7 @@ def var_cvar_plot(x, probs=None, save_fig_title=False, color="blue", title=None,
         plt.savefig(f"plots/{save_fig_title}.png")
 
 
-def volume_contribution(time_points, volumes, save_fig_title=False, title=None, **kwargs):
+def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=None, **kwargs):
     """
     Volume contribution plot
     :param time_points:
@@ -75,12 +133,12 @@ def volume_contribution(time_points, volumes, save_fig_title=False, title=None, 
     agents = ["Random", "Investor", "Trend", "MarketMaker"]
 
     ax.stackplot(time_points, volumes, labels=agents);
-    ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
+    #ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
     ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1))
-    ax.legend(loc='center', bbox_to_anchor=(0.5, -0.3),
+    ax.legend(loc='center', bbox_to_anchor=(0.5, -0.2),
               fancybox=True, shadow=True, ncol=6);
-    ax.set_xlabel("Target return")
-    ax.set_ylabel("Portfolio weights")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Percentage of Volume")
     ax.set_title(title);
 
     if save_fig_title:
@@ -88,7 +146,7 @@ def volume_contribution(time_points, volumes, save_fig_title=False, title=None, 
         plt.savefig(f'plots/{save_fig_title}.png')
 
 
-def dist_vs_normal(returns, **kwargs):
+def dist_vs_normal_plot(returns, **kwargs):
     """
 
     :param returns:
@@ -131,3 +189,27 @@ def dist_vs_normal(returns, **kwargs):
     ax.text(loc[0], loc[1] - 0.05, f"skew = {skew:.1f}", horizontalalignment='center', verticalalignment='center',
             transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5))
 
+
+color_map = plt.cm.get_cmap('tab20c')
+
+default_colors = dict()
+default_colors["cornflower"] = "cornflowerblue"
+# default_colors['green'] = "green"
+#default_colors['light_green'] = '#a8e6cf'
+default_colors['red'] = '#ff8b94'
+default_colors["medgreen"] = "mediumseagreen"
+default_colors["yellow"] = "khaki"
+default_colors['black'] = 'black'
+
+
+default_colors['cyan'] = '#76b4bd'
+default_colors['orange'] = '#ffd3b6'
+
+
+default_colors['light_red'] = '#ffaaa5'
+default_colors['gray'] = '#A9A9A9'
+default_colors['light_cyan'] = '#bdeaee'
+
+default_colors['dark_blue'] = '#3b7dd8'
+default_colors['light_blue'] = '#4a91f2'
+default_colors['very_light_blue'] = '#8dbdff'
