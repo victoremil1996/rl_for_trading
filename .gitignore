@@ -3,3 +3,4 @@
 *cpython-38.pyc
 *.pyc
 *venv
+/notebooks/plots/

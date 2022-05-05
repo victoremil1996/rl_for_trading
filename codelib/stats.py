@@ -62,3 +62,43 @@ def weighted_percentile(x: np.array, p: Union[float, np.ndarray], probs=None, ax
     else:
 
         return np.apply_along_axis(weighted_percentile, axis, x, p, probs)
+
+
+def c_var(x: np.array, p: float, probs: np.array = None, axis: int = 0):
+    """
+    Conditional Value at Risk Function
+    """
+    var = weighted_percentile(x, p=p, probs=probs, axis=axis)
+    bool_array = (x < var) * x if (axis == 0) else ((x.T < var) * x.T).T
+    bool_array[bool_array == 0] = np.nan
+
+    masked_data = np.ma.masked_array(bool_array, np.isnan(bool_array))
+
+    if x.ndim == 1:
+        result = np.ma.average(masked_data, axis=axis, weights=probs)
+    else:
+        result = np.ma.average(masked_data, axis=axis, weights=probs).filled(np.nan)
+
+    return result
+
+
+def weighted_mean(var, wts):
+    """Calculates the weighted mean"""
+    return np.average(var, weights=wts)
+
+
+def weighted_variance(var, wts):
+    """Calculates the weighted variance"""
+    return np.average((var - weighted_mean(var, wts))**2, weights=wts)
+
+
+def weighted_skew(var, wts):
+    """Calculates the weighted skewness"""
+    return (np.average((var - weighted_mean(var, wts))**3, weights=wts) /
+            weighted_variance(var, wts)**(1.5))
+
+
+def weighted_kurtosis(var, wts):
+    """Calculates the weighted skewness"""
+    return (np.average((var - weighted_mean(var, wts))**4, weights=wts) /
+            weighted_variance(var, wts)**(2))
