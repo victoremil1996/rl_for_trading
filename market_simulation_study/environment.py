@@ -13,6 +13,7 @@ class MarketEnvironment:
         self.fee = state["fee"]
         self.slippage = state["slippage"]
         self.agents = None
+        self.all_traded_prices = []
 
     def get_latencies(self):
         latencies = [0] * len(self.agents) 
@@ -186,6 +187,8 @@ class MarketEnvironment:
         self.agents = [x for _, x in sorted(zip(agent_ids, self.agents))]  # Sorting buyers according to latency
         self.total_buy_volume = total_buy_volume        
         self.total_sell_volume = total_sell_volume
+        self.all_traded_prices = np.array(matched_price).copy()
+
     def update_market(self) -> NoReturn:
 
         self.state = {'volume': self.matched_volumes, # Total volume
@@ -195,7 +198,8 @@ class MarketEnvironment:
                       'mean_sell_price': self.mean_sell_price,
                       'slippage': self.slippage,
                       'total_buy_volume': self.total_buy_volume,
-                      'total_sell_volume': self.total_sell_volume}
+                      'total_sell_volume': self.total_sell_volume,
+                      'all_traded_prices': self.all_traded_prices}
 
     def step(self, agents: list) -> dict:
         self.agents = agents
