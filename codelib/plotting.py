@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import ndarray
 from codelib.stats import weighted_percentile, weighted_skew, weighted_kurtosis, c_var
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -190,7 +191,7 @@ def dist_vs_normal_plot(returns, **kwargs):
             transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5))
 
 
-def fan_chart(x: ndarray, y: ndarray, **kwargs):
+def fan_chart(x: ndarray, y:ndarray, **kwargs):
 
     """
     From Python for the financial economist at CBS. https://github.com/staxmetrics/python_for_the_financial_economist
