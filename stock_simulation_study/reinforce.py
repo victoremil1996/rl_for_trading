@@ -235,7 +235,7 @@ class REINFORCE_Agent(Agent):
     """REINFORCE policy gradient method using deep Keras NN"""
     def __init__(self, state_size=4, action_size=5, learning_rate=0.0005,
                  discount_rate=0, n_hidden_layers=2, hidden_layer_size=16,
-                 activation='relu', reg_penalty=0, dropout=0, filename="kreinforce",
+                 activation='relu', reg_penalty=0, bias_reg=0, dropout=0, filename="kreinforce",
                  verbose=True, epsilon = 0.1, mu_zero = False):
         self.state_size = state_size
         self.action_size = action_size
@@ -247,6 +247,7 @@ class REINFORCE_Agent(Agent):
         self.hidden_layer_size = hidden_layer_size
         self.activation = activation
         self.reg_penalty = reg_penalty
+        self.bias_reg = bias_reg
         self.dropout = dropout
         self.verbose = verbose
         self.filename = filename
@@ -301,7 +302,8 @@ class REINFORCE_Agent(Agent):
             last_layer = Dense(units=int(self.hidden_layer_size / (i + 1)),
                                activation=self.activation,
                                kernel_initializer=glorot_uniform(),
-                               kernel_regularizer=keras.regularizers.l2(self.reg_penalty),
+                               kernel_regularizer=keras.regularizers.L2(self.reg_penalty),
+                               bias_regularizer=keras.regularizers.L2(self.bias_reg),
                                name="Dense%02d" % i)(last_layer)
 
         outputs = Dense(self.action_size, activation='softmax', name="Output")(last_layer)
