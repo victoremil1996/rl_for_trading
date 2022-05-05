@@ -72,7 +72,8 @@ class StockEnvironmentTwo:
                  price_type: str = "sim_prices",
                  fee: float = 0,
                  n_time_points: int = 1000,
-                 kappa: float = 0.1):
+                 kappa: float = 0.1,
+                 trade_cost: float = 0.1):
         self.fee = fee
         self.agent = None
         self.prices = prices
@@ -86,6 +87,7 @@ class StockEnvironmentTwo:
         self.done = False
         self.kappa = kappa
         self.n_steps = 0
+        self.trade_cost = trade_cost
         
     def step(self, action, state_size, mu_zero):
         #self.state.append(self.sim_prices[self.time])
@@ -117,7 +119,7 @@ class StockEnvironmentTwo:
             mu = self.mu
 
         if self.time > 2:
-            trading_cost = 0.01
+            trading_cost = self.trade_cost
             reward = self.state[-1] * self.pos_size - self.kappa * (self.state[-1] * self.pos_size - mu) ** 2 - trading_cost * np.abs((action - 2))
         else:
             reward = 0
@@ -131,6 +133,8 @@ class StockEnvironmentTwo:
         self.time = 100
         self.pos_size = 0
         self.n_steps = 0
+        #self.mu = 0
+
         for _ in range(100):
             #self.state.append(self.sim_prices[self.time])
             #self.state = np.array([self.sim_prices[self.time], self.sim_prices[self.time] - self.sim_prices[self.time-1]])
@@ -156,6 +160,8 @@ class StockEnvironmentTwo:
         if self.price_type == "sim_prices":
             simulation = self.am.simulate(params = self.am_params, nobs = (self.n_time_points + 100)) / 100
             self.sim_prices = simulation.data.to_price_index().values.tolist()
+        elif self.price_type == "test_prices":
+            self.sim_prices = self.prices
         else:
             self.sim_prices = [np.sin(zz) for zz in np.linspace(0,100,self.n_time_points + 100)]
         
