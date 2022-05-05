@@ -413,7 +413,7 @@ class InvestorAgent(Agent):
             sell_is_possible = True
         else:
             sell_is_possible = (self.position >= self.n_orders / 2 * self.sell_volume)
-        will_sell = (np.random.uniform(0, 95) < self.intensity) and sell_is_possible
+        will_sell = (np.random.uniform(0, 0.95) < self.intensity) and sell_is_possible
 
         if self.orders_in_queue == 0:
             self.is_buying = False
