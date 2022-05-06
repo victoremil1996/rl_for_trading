@@ -162,11 +162,13 @@ def dist_vs_normal_plot(returns, **kwargs):
     norm_dist = stats.norm.pdf(x, avg, std)
     kurt = weighted_kurtosis(returns[1:], wts=np.ones_like(returns[1:]))
     skew = weighted_skew(returns[1:], wts=np.ones_like(returns[1:]))
-
+    return_label = "Returns"
     initialize_fig = True
     if "ax" in kwargs:
         ax = kwargs["ax"]
         initialize_fig = False
+    if "return_label" in kwargs:
+        return_label = kwargs["return_label"]
 
     if "x_lim" in kwargs:
         x_lim = kwargs["x_lim"]
@@ -180,10 +182,10 @@ def dist_vs_normal_plot(returns, **kwargs):
                                  weights=np.ones_like(returns.values.flatten()), label="Returns",
                                  alpha=1, ax = ax).get_lines()[0].get_data()
     ax.cla()
-    ax.plot(x_vals, y_vals / y_vals.max(), label="Returns", color="cornflowerblue", lw=.75)
-    ax.plot(x, norm_dist / y_vals.max(), label="Normal Dist", ls="--", color="red", lw=0.5)
+    ax.plot(x_vals, y_vals / norm_dist.max(), label=f"{return_label}", color="cornflowerblue", lw=.75)
+    ax.plot(x, norm_dist / norm_dist.max(), label="Normal Dist", ls="--", color="red", lw=0.5)
     ax.legend()
-    ax.set(xlim=(-0.0075, 0.0075), ylim=(0, 1), xlabel="Return", ylabel="Density")
+    ax.set(xlim=(-0.0075, 0.0075), ylim=(0, y_vals.max() / norm_dist.max() + 0.1), xlabel="Return", ylabel="Density")
 
     ax.text(loc[0], loc[1], f"kurt = {kurt:.1f}", horizontalalignment='center', verticalalignment='center',
             transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5))
