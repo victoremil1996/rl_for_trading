@@ -4,3 +4,5 @@
 *.pyc
 *venv
 /notebooks/plots/
+.DS_Store
+.idea
