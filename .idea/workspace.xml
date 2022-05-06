@@ -3,40 +3,41 @@
   <component name="ChangeListManager">
     <list default="true" id="4d2ce907-2fb6-475b-8a6f-3a1ee57be51d" name="Changes" comment="test commit">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_pos_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_act_price_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_act_price_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_act_return_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_act_return_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_agent_return.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_agent_return.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_pos_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_pos_plot.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/10000_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/1000_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/100_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/2000_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/250_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/5000_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/500_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_act_price_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_act_return_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_agent_return.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/agent_episodes/50_epi_pos_plot.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/plots/neural_network_reinforce.PNG" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/stock_price_trading.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/stock_price_trading.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/stock_simulation_study/reinforce.py" beforeDir="false" afterPath="$PROJECT_DIR$/stock_simulation_study/reinforce.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/stock_simulation_study/stock_environment.py" beforeDir="false" afterPath="$PROJECT_DIR$/stock_simulation_study/stock_environment.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
