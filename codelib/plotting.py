@@ -11,13 +11,11 @@ from IPython.display import display, clear_output
 
 
 class DefaultStyle:
-
     """
     Class the sets the defaults plotting style
     """
 
-    def __init__(self, plot_size = (12, 6), font_size: float = 15.0):
-
+    def __init__(self, plot_size=(12, 6), font_size: float = 15.0):
         """
         Spills plot style into memory upon instantiation
 
@@ -45,7 +43,6 @@ class DefaultStyle:
         self._spill()
 
     def _spill(self):
-
         """
         Spills rcParams into global memory
 
@@ -134,7 +131,7 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
     agents = ["Random", "Investor", "Trend", "MarketMaker"]
 
     ax.stackplot(time_points, volumes, labels=agents);
-    #ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
+    # ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
     ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1))
     ax.legend(loc='center', bbox_to_anchor=(0.5, -0.2),
               fancybox=True, shadow=True, ncol=6);
@@ -178,7 +175,7 @@ def dist_vs_normal_plot(returns, **kwargs):
 
     x_vals, y_vals = sns.kdeplot(x=returns.values.flatten(), color="cornflowerblue",
                                  weights=np.ones_like(returns.values.flatten()), label="Returns",
-                                 alpha=1, ax = ax).get_lines()[0].get_data()
+                                 alpha=1, ax=ax).get_lines()[0].get_data()
     ax.cla()
     ax.plot(x_vals, y_vals / y_vals.max(), label="Returns", color="cornflowerblue", lw=.75)
     ax.plot(x, norm_dist / y_vals.max(), label="Normal Dist", ls="--", color="red", lw=0.5)
@@ -191,8 +188,7 @@ def dist_vs_normal_plot(returns, **kwargs):
             transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5))
 
 
-def fan_chart(x: ndarray, y:ndarray, **kwargs):
-
+def fan_chart(x: ndarray, y: ndarray, **kwargs):
     """
     From Python for the financial economist at CBS. https://github.com/staxmetrics/python_for_the_financial_economist
     Plots a fan chart.
@@ -266,7 +262,6 @@ def fan_chart(x: ndarray, y:ndarray, **kwargs):
         fig, ax = plt.subplots()
 
     for i in range(number_to_plot):
-
         # for plotting below
         values1 = y[i, :]
         values2 = y[i + 1, :]
@@ -296,23 +291,19 @@ def fan_chart(x: ndarray, y:ndarray, **kwargs):
         ax.legend()
 
 
-
-
 color_map = plt.cm.get_cmap('tab20c')
 
 default_colors = dict()
 default_colors["cornflower"] = "cornflowerblue"
 # default_colors['green'] = "green"
-#default_colors['light_green'] = '#a8e6cf'
+# default_colors['light_green'] = '#a8e6cf'
 default_colors['red'] = '#ff8b94'
 default_colors["medgreen"] = "mediumseagreen"
 default_colors["yellow"] = "khaki"
 default_colors['black'] = 'black'
 
-
 default_colors['cyan'] = '#76b4bd'
 default_colors['orange'] = '#ffd3b6'
-
 
 default_colors['light_red'] = '#ffaaa5'
 default_colors['gray'] = '#A9A9A9'

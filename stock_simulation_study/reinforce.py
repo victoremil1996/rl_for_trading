@@ -136,7 +136,7 @@ class Agent:
             self.remember()
             self.state = self.next_state
             self.increment_time()
-            
+
         if render:
             env.render()
             
@@ -236,7 +236,7 @@ class REINFORCE_Agent(Agent):
     def __init__(self, state_size=4, action_size=5, learning_rate=0.0005,
                  discount_rate=0, n_hidden_layers=2, hidden_layer_size=16,
                  activation='relu', reg_penalty=0, bias_reg=0, dropout=0, filename="kreinforce",
-                 verbose=True, epsilon = 0.1, mu_zero = False):
+                 verbose=True, epsilon = 0.1, mu_zero = False, deterministic_action = False):
         self.state_size = state_size
         self.action_size = action_size
         self.action_space = list(range(action_size))
@@ -251,7 +251,6 @@ class REINFORCE_Agent(Agent):
         self.dropout = dropout
         self.verbose = verbose
         self.filename = filename
-
         self.train_model, self.predict_model = self.policy_model()
         self.results = []
         self.save_interval = 10
@@ -299,7 +298,7 @@ class REINFORCE_Agent(Agent):
                 last_layer = Dropout(self.dropout, name="Dropout%02d" % i)(last_layer)
 
             #last_layer = Dense(units=self.hidden_layer_size,
-            last_layer = Dense(units=int(self.hidden_layer_size / (i + 1)),
+            last_layer = Dense(units=int(self.hidden_layer_size / (2**i)), #0, 2, 4, 8:: 0, 4
                                activation=self.activation,
                                kernel_initializer=glorot_uniform(),
                                kernel_regularizer=keras.regularizers.L2(self.reg_penalty),
@@ -343,8 +342,6 @@ class REINFORCE_Agent(Agent):
                 action = np.random.choice(actions, p=probs)
             else:
                 action = np.random.choice(self.action_space, p=probabilities[0])
-
-
         return action
 
     def remember(self):
