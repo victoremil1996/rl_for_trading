@@ -11,13 +11,11 @@ from IPython.display import display, clear_output
 
 
 class DefaultStyle:
-
     """
     Class the sets the defaults plotting style
     """
 
-    def __init__(self, plot_size = (12, 6), font_size: float = 15.0):
-
+    def __init__(self, plot_size=(12, 6), font_size: float = 15.0):
         """
         Spills plot style into memory upon instantiation
 
@@ -45,7 +43,6 @@ class DefaultStyle:
         self._spill()
 
     def _spill(self):
-
         """
         Spills rcParams into global memory
 
@@ -115,7 +112,7 @@ def var_cvar_plot(x, probs=None, save_fig_title=False, color="blue", title=None,
         plt.savefig(f"plots/{save_fig_title}.png")
 
 
-def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=None, **kwargs):
+def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=None, n_ticks=None, **kwargs):
     """
     Volume contribution plot
     :param time_points:
@@ -131,14 +128,16 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
     if initialize_fig:
         fig, ax = plt.subplots()
 
-    agents = ["Random", "Investor", "Trend", "MarketMaker"]
+    agents = ["Investor", "Trend", "Random", "MarketMaker"]
+    # agents = ["Trend", "Investor", "Random", "MarketMaker"]
+    # volumes = np.vstack((volumes[2, :], volumes[1, :], volumes[0, :], volumes[3, :]))
 
     ax.stackplot(time_points, volumes, labels=agents);
-    #ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
+    # ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
     ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1))
     ax.legend(loc='center', bbox_to_anchor=(0.5, -0.2),
               fancybox=True, shadow=True, ncol=6);
-    ax.set_xlabel("Time")
+    ax.set_xlabel(f"Rolling {n_ticks} Ticks")
     ax.set_ylabel("Percentage of Volume")
     ax.set_title(title);
 
@@ -147,7 +146,7 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
         plt.savefig(f'plots/{save_fig_title}.png')
 
 
-def dist_vs_normal_plot(returns, **kwargs):
+def dist_vs_normal_plot(returns, compare_returns=None, **kwargs):
     """
 
     :param returns:
@@ -164,12 +163,14 @@ def dist_vs_normal_plot(returns, **kwargs):
     skew = weighted_skew(returns[1:], wts=np.ones_like(returns[1:]))
     return_label = "Returns"
     initialize_fig = True
+    include_norm = True
     if "ax" in kwargs:
         ax = kwargs["ax"]
         initialize_fig = False
     if "return_label" in kwargs:
         return_label = kwargs["return_label"]
-
+    if "include_norm" in kwargs:
+        include_norm = kwargs["include_norm"]
     if "x_lim" in kwargs:
         x_lim = kwargs["x_lim"]
     if "y_lim" in kwargs:
@@ -180,12 +181,23 @@ def dist_vs_normal_plot(returns, **kwargs):
 
     x_vals, y_vals = sns.kdeplot(x=returns.values.flatten(), color="cornflowerblue",
                                  weights=np.ones_like(returns.values.flatten()), label="Returns",
-                                 alpha=1, ax = ax).get_lines()[0].get_data()
+                                 alpha=1, ax=ax).get_lines()[0].get_data()
+    if include_norm == False:
+        x_vals2, y_vals2 = sns.kdeplot(x=compare_returns.values.flatten(), color="cornflowerblue",
+                                       weights=np.ones_like(compare_returns.values.flatten()), label="Returns",
+                                       alpha=1, ax=ax).get_lines()[0].get_data()
     ax.cla()
-    ax.plot(x_vals, y_vals / norm_dist.max(), label=f"{return_label}", color="cornflowerblue", lw=.75)
-    ax.plot(x, norm_dist / norm_dist.max(), label="Normal Dist", ls="--", color="red", lw=0.5)
+    if include_norm:
+        y_scale = norm_dist.max()
+        ax.plot(x_vals, y_vals / y_scale, label=f"{return_label}", color="cornflowerblue", lw=.75)
+        ax.plot(x, norm_dist / y_scale, label="Normal Dist", ls="--", color="red", lw=0.5)
+    else:
+        y_scale = y_vals.max()
+        ax.plot(x_vals, y_vals / y_scale, label=f"{return_label}", color="cornflowerblue", lw=.75)
+        ax.plot(x_vals2, y_vals2 / y_scale, label=f"Real Data", color="red", lw=0.5, ls="--")
     ax.legend()
-    ax.set(xlim=(-0.0075, 0.0075), ylim=(0, y_vals.max() / norm_dist.max() + 0.1), xlabel="Return", ylabel="Density")
+
+    ax.set(xlim=(-0.0075, 0.0075), ylim=(0, 1.1), xlabel="Return", ylabel="Density")
 
     ax.text(loc[0], loc[1], f"kurt = {kurt:.1f}", horizontalalignment='center', verticalalignment='center',
             transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5))
@@ -193,8 +205,7 @@ def dist_vs_normal_plot(returns, **kwargs):
             transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5))
 
 
-def fan_chart(x: ndarray, y:ndarray, **kwargs):
-
+def fan_chart(x: ndarray, y: ndarray, **kwargs):
     """
     From Python for the financial economist at CBS. https://github.com/staxmetrics/python_for_the_financial_economist
     Plots a fan chart.
@@ -268,7 +279,6 @@ def fan_chart(x: ndarray, y:ndarray, **kwargs):
         fig, ax = plt.subplots()
 
     for i in range(number_to_plot):
-
         # for plotting below
         values1 = y[i, :]
         values2 = y[i + 1, :]
@@ -298,23 +308,19 @@ def fan_chart(x: ndarray, y:ndarray, **kwargs):
         ax.legend()
 
 
-
-
 color_map = plt.cm.get_cmap('tab20c')
 
 default_colors = dict()
 default_colors["cornflower"] = "cornflowerblue"
 # default_colors['green'] = "green"
-#default_colors['light_green'] = '#a8e6cf'
+# default_colors['light_green'] = '#a8e6cf'
 default_colors['red'] = '#ff8b94'
 default_colors["medgreen"] = "mediumseagreen"
 default_colors["yellow"] = "khaki"
 default_colors['black'] = 'black'
 
-
 default_colors['cyan'] = '#76b4bd'
 default_colors['orange'] = '#ffd3b6'
-
 
 default_colors['light_red'] = '#ffaaa5'
 default_colors['gray'] = '#A9A9A9'
