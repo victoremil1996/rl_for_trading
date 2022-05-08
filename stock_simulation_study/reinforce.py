@@ -236,7 +236,7 @@ class REINFORCE_Agent(Agent):
     def __init__(self, state_size=4, action_size=5, learning_rate=0.0005,
                  discount_rate=0, n_hidden_layers=2, hidden_layer_size=16,
                  activation='relu', reg_penalty=0, bias_reg=0, dropout=0, filename="kreinforce",
-                 verbose=True, epsilon = 0.1, mu_zero = False, deterministic_action = False):
+                 verbose=True, epsilon = 0.1, mu_zero = False, fully_deterministic = False):
         self.state_size = state_size
         self.action_size = action_size
         self.action_space = list(range(action_size))
@@ -257,6 +257,7 @@ class REINFORCE_Agent(Agent):
         self.reset()
         self.epsilon = epsilon
         self.mu_zero = mu_zero
+        self.fully_deterministic = fully_deterministic
 
     def reset(self):
         """reset agent for start of episode"""
@@ -316,6 +317,55 @@ class REINFORCE_Agent(Agent):
 
         return train_model, predict_model
 
+    def policy_model_rnn(self):
+        """set up NN model for policy.
+        predict returns probs of actions to sample from.
+        train needs discounted rewards for the episode, so we define custom loss.
+        when training use train_model with custom loss and multi input of training data and rewards.
+        when predicting use predict_model with single input.
+        """
+
+        def custom_loss(y_true, y_pred):
+            y_pred_clip = K.clip(y_pred, 1e-8, 1 - 1e-8)
+            log_likelihood = y_true * K.log(y_pred_clip)
+            return K.sum(-log_likelihood * discounted_rewards)
+
+        inputs = Input(shape=(self.state_size,), name="Input")
+        discounted_rewards = Input(shape=(1,), name="Discounted_rewards")
+        last_layer = inputs
+
+        for i in range(self.n_hidden_layers):
+            if self.verbose:
+                formatstr = "layer %d size %d, %s, reg_penalty %.8f, dropout %.3f"
+                print(formatstr % (i + 1,
+                                   self.hidden_layer_size,
+                                   self.activation,
+                                   self.reg_penalty,
+                                   self.dropout,
+                                   ))
+            # add dropout, but not on inputs, only between hidden layers
+            if i > 0 and self.dropout:
+                last_layer = Dropout(self.dropout, name="Dropout%02d" % i)(last_layer)
+
+            # last_layer = Dense(units=self.hidden_layer_size,
+            last_layer = Dense(units=int(self.hidden_layer_size / (2 ** i)),  # 0, 2, 4, 8:: 0, 4
+                               activation=self.activation,
+                               kernel_initializer=glorot_uniform(),
+                               kernel_regularizer=keras.regularizers.L2(self.reg_penalty),
+                               bias_regularizer=keras.regularizers.L2(self.bias_reg),
+                               name="Dense%02d" % i)(last_layer)
+
+        outputs = Dense(self.action_size, activation='softmax', name="Output")(last_layer)
+        train_model = Model(inputs=[inputs, discounted_rewards], outputs=[outputs])
+        train_model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss=custom_loss)
+
+        predict_model = Model(inputs=[inputs], outputs=[outputs])
+
+        if self.verbose:
+            print(predict_model.summary())
+
+        return train_model, predict_model
+
     def act(self, state, env):
         """pick an action using predict_model"""
         probabilities = self.predict_model.predict(state)
@@ -334,14 +384,20 @@ class REINFORCE_Agent(Agent):
                 if np.any(np.isnan(probs)):
                     probs = [1, 0, 0]
                 action = np.random.choice(actions, p=probs)
+                if self.fully_deterministic == True:
+                    action = actions[np.argmax(probs)]
             elif env.pos_size >= 10:
                 actions = self.action_space[:3]
                 probs = probabilities[0][:3] / np.sum(probabilities[0][:3])
                 if np.any(np.isnan(probs)):
                     probs = [0, 0, 1]
                 action = np.random.choice(actions, p=probs)
+                if self.fully_deterministic == True:
+                    action = actions[np.argmax(probs)]
             else:
                 action = np.random.choice(self.action_space, p=probabilities[0])
+                if self.fully_deterministic == True:
+                    action = np.argmax(probabilities[0])
         return action
 
     def remember(self):

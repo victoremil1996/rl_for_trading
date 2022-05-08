@@ -105,9 +105,15 @@ class StockEnvironmentTwo:
         self.state = []
         self.pos_size += (action - 2)
         self.state.append(self.pos_size)
+        moving_avg = np.mean(self.sim_prices[self.time - 20:self.time]) - np.mean(self.sim_prices[self.time - 5:self.time])
+        self.state.append(moving_avg)
+        # if moving_avg > 1:
+        #     self.state.append(1)
+        # else:
+        #     self.state.append(0)
         # for i in range(int((state_size-1)/2)):
         #     self.state.append(prices[i])
-        for i in range(int((state_size - 1))):
+        for i in range(int((state_size - 2))):
             self.state.append(returns[i])
         self.state = np.array(self.state)
         self.time += 1
@@ -175,7 +181,12 @@ class StockEnvironmentTwo:
             self.sim_prices = simulation.data.to_price_index().values.tolist()
         elif self.price_type == "test_prices":
             self.sim_prices = self.prices
-            self.sim_prices = self.sim_prices["spy"].to_list()
+            self.sim_prices = self.sim_prices['spy'].to_list()
+        elif self.price_type == "sim_sin_prices":
+            simulation = self.am.simulate(params=self.am_params, nobs=(self.n_time_points + 100)) / 100
+            pi_seq = np.linspace(start=0, stop=10 * 3.14159, num=len(simulation))
+            self.sim_prices = simulation.data.to_price_index().values.tolist() * (2+np.sin(pi_seq)) + \
+                              simulation.data.to_price_index().values.tolist() * np.repeat(5, len(simulation))
         else:
             self.sim_prices = [np.sin(zz) for zz in np.linspace(0, 100, self.n_time_points + 100)]
 

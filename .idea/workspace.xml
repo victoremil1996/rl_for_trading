@@ -3,7 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="4d2ce907-2fb6-475b-8a6f-3a1ee57be51d" name="Changes" comment="test commit">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/codelib/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/codelib/plotting.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/garch_modelling.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/garch_modelling.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/stock_price_trading.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/stock_price_trading.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/stock_simulation_study/reinforce.py" beforeDir="false" afterPath="$PROJECT_DIR$/stock_simulation_study/reinforce.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/stock_simulation_study/stock_environment.py" beforeDir="false" afterPath="$PROJECT_DIR$/stock_simulation_study/stock_environment.py" afterDir="false" />
