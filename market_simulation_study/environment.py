@@ -8,7 +8,7 @@ from codelib.stats import weighted_percentile
 class MarketEnvironment:
     def __init__(self,
                  state: dict,
-                 use_last_traded_price=False):
+                 use_last_traded_price=True):
         self.state = state.copy()
         self.use_last_traded_price = use_last_traded_price
         self.market_prices = state["market_prices"].copy()
