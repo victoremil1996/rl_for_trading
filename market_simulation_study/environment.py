@@ -116,7 +116,8 @@ class MarketEnvironment:
             # SELL ORDER INTO SELL ORDER
             sell_order_book = sell_order_book[sell_order_book["sell_volume"] > 0]
             if self.agents[i + 1].buy_order["buy_volume"].values > 0:
-                buy_order_book = buy_order_book.append(self.agents[i + 1].buy_order)
+                #buy_order_book = buy_order_book.append(self.agents[i + 1].buy_order)
+                buy_order_book = pd.concat([buy_order_book, self.agents[i + 1].buy_order])
 
             sell_order_book = pd.DataFrame(sell_order_book, index=sell_order_book.iloc[:, -1])
             buy_order_book = pd.DataFrame(buy_order_book, index=buy_order_book.iloc[:, -1])
@@ -165,7 +166,8 @@ class MarketEnvironment:
             # buy ORDER INTO buy ORDER
             buy_order_book = buy_order_book[buy_order_book["buy_volume"] > 0]
             if self.agents[i + 1].sell_order["sell_volume"].values > 0:
-                sell_order_book = sell_order_book.append(self.agents[i + 1].sell_order)
+                #sell_order_book = sell_order_book.append(self.agents[i + 1].sell_order)
+                sell_order_book = pd.concat([sell_order_book, self.agents[i + 1].sell_order])
 
             sell_order_book = pd.DataFrame(sell_order_book, index=sell_order_book.iloc[:, -1])
             buy_order_book = pd.DataFrame(buy_order_book, index=buy_order_book.iloc[:, -1])
