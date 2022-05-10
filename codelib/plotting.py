@@ -112,7 +112,7 @@ def var_cvar_plot(x, probs=None, save_fig_title=False, color="blue", title=None,
         plt.savefig(f"plots/{save_fig_title}.png")
 
 
-def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=None, n_ticks=None, **kwargs):
+def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=None, n_ticks=None, rl_agent=False,**kwargs):
     """
     Volume contribution plot
     :param time_points:
@@ -127,8 +127,10 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
         initialize_fig = False
     if initialize_fig:
         fig, ax = plt.subplots()
-
-    agents = ["Investor", "Trend", "Random", "MarketMaker"]
+    if rl_agent:
+        agents = ["Investor", "Trend", "Random", "MarketMaker", "RL"]
+    else:
+        agents = ["Investor", "Trend", "Random", "MarketMaker"]
     # agents = ["Trend", "Investor", "Random", "MarketMaker"]
     # volumes = np.vstack((volumes[2, :], volumes[1, :], volumes[0, :], volumes[3, :]))
 
@@ -136,8 +138,8 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
     # ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
     ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1))
     ax.legend(loc='center', bbox_to_anchor=(0.5, -0.2),
-              fancybox=True, shadow=True, ncol=6);
-    ax.set_xlabel(f"Rolling {n_ticks} Ticks")
+              fancybox=True, shadow=True, ncol=6, fontsize=12);
+    ax.set_xlabel(f"Rolling {n_ticks} Time Steps")
     ax.set_ylabel("Percentage of Volume")
     ax.set_title(title);
 

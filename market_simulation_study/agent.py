@@ -1043,7 +1043,7 @@ class Memory:
         self.discounted_rewards = []
 
     def clear_earliest_entry(self):
-        """Clear first remembered experiance"""
+        """Clear first remembered experience"""
         self.states = self.states[1:]
         self.actions = self.actions[1:]
         self.rewards = self.rewards[1:]
@@ -1351,6 +1351,7 @@ class MuPolicyNetwork(nn.Module):
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)
         self.mu_layer = nn.Linear(fc2_dims, int(self.action_dims))
+        self.dropout = nn.Dropout(0.5)
         # self.log_sigma_layer = nn.Linear(fc2_dims, self.action_dims)
         #self.p_layer = nn.Linear(fc2_dims, int(self.action_dims / 2))
 
@@ -1358,6 +1359,7 @@ class MuPolicyNetwork(nn.Module):
         """feed through the network and output mu and sigma vectors"""
         activation = activation.float()
         activation = torch.relu(self.fc1(activation))
+        activation = self.dropout(activation)
         activation = torch.relu(self.fc2(activation))
         mu = torch.tanh(self.mu_layer(activation))
         #p = torch.sigmoid(self.p_layer(activation))
