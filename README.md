@@ -10,3 +10,5 @@ Simulation studies and reinforcement learning training can be found in the noteb
 ## RL for stock trading
 
 We train an RL agent to trade simulated stock prices using a AR + GARCH model estimated from S&P 500 data. The implemented agent utilizing the REINFORCE Monte Carlo method. 
+
+Simulation studies and backtest of algorithm can be found in the notebooks folder.
