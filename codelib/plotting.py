@@ -126,7 +126,7 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
         ax = kwargs["ax"]
         initialize_fig = False
     if initialize_fig:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize = (8,6))
     if rl_agent:
         agents = ["Investor", "Trend", "Random", "MarketMaker", "RL"]
     else:
@@ -137,8 +137,9 @@ def volume_contribution_plot(time_points, volumes, save_fig_title=False, title=N
     ax.stackplot(time_points, volumes, labels=agents);
     # ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=1))
     ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1))
-    ax.legend(loc='center', bbox_to_anchor=(0.5, -0.2),
-              fancybox=True, shadow=True, ncol=6, fontsize=12);
+    leg = ax.legend(loc='upper right', bbox_to_anchor=(1, 1),
+              fancybox=True, shadow=True, fontsize=12);
+    leg.get_frame().set_alpha(0.6)
     ax.set_xlabel(f"Rolling {n_ticks} Time Steps")
     ax.set_ylabel("Percentage of Volume")
     ax.set_title(title);

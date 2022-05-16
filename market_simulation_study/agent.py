@@ -1104,19 +1104,23 @@ class ActionValueNetwork(nn.Module):
     """Critic Neural Network approximating the action-value function"""
 
     def __init__(self, input_dims, fc1_dims: int = 256, fc2_dims: int = 256,
-                 chkpt_dir='nn_models', name='gaus_bin'):
+                 chkpt_dir='nn_models', name='gaus_bin', dropout = 0.25):
         super(ActionValueNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, name)
         self.input_dims = input_dims
+        self.dropout = dropout
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)  # Fully connected layer 1 / Hidden layer 1
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)  # Hidden layer 2
         self.fc3 = nn.Linear(fc2_dims, 1)  # Action value
+        self.dropout = nn.Dropout(self.dropout)
 
     def forward(self, activation):
         """feed through the network"""
         activation = f.relu(self.fc1(activation))
+        activation = self.dropout(activation)
         activation = f.relu(self.fc2(activation))
+        activation = self.dropout(activation)
         activation = self.fc3(activation)
 
         return activation
@@ -1330,7 +1334,7 @@ class MuPolicyNetwork(nn.Module):
     def __init__(self, action_dims: int, input_dims: int, max_action_value, min_action_value,
                  max_action_value_two: int = 0, min_action_value_two: int = 15,
                  fc1_dims: int = 256, fc2_dims: int = 256, soft_clamp_function=None, sigma=0.05,
-                 chkpt_dir='nn_models', name='gaus_bin', n_volume = 3):
+                 chkpt_dir='nn_models', name='gaus_bin', n_volume=3, dropout = 0.5):
         super(MuPolicyNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, name)
@@ -1347,11 +1351,12 @@ class MuPolicyNetwork(nn.Module):
         self.min_log_sigma_two = -10
         self.sigma = sigma
         self.n_volume = n_volume
+        self.dropout = dropout
 
         self.fc1 = nn.Linear(self.input_dims, fc1_dims)
         self.fc2 = nn.Linear(fc1_dims, fc2_dims)
         self.mu_layer = nn.Linear(fc2_dims, int(self.action_dims))
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(self.dropout)
         # self.log_sigma_layer = nn.Linear(fc2_dims, self.action_dims)
         #self.p_layer = nn.Linear(fc2_dims, int(self.action_dims / 2))
 
@@ -1361,6 +1366,7 @@ class MuPolicyNetwork(nn.Module):
         activation = torch.relu(self.fc1(activation))
         activation = self.dropout(activation)
         activation = torch.relu(self.fc2(activation))
+        activation = self.dropout(activation)
         mu = torch.tanh(self.mu_layer(activation))
         #p = torch.sigmoid(self.p_layer(activation))
         # log_sigma = self.log_sigma_layer(activation)
@@ -1371,7 +1377,7 @@ class MuPolicyNetwork(nn.Module):
 
     def get_action(self, state, eval_deterministic=False, save_mu=False):
         #mu, p = self.forward(state)
-        mu = self.forward(state)
+        mu = self.forward(state) / 40
 
         # if eval_deterministic:
         #     action = mu.detach()
@@ -1386,7 +1392,7 @@ class MuPolicyNetwork(nn.Module):
         action.detach()
 
         # action = self.max_action_value * torch.tanh(action / self.max_action_value)
-        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        #action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         #action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
         #action[-2:] = action[-2:].int()
 
@@ -1396,7 +1402,7 @@ class MuPolicyNetwork(nn.Module):
         return action
 
     def get_action_and_log_prob(self, state):
-        mu = self.forward(state)  # Initialize activation with state
+        mu = self.forward(state) / 40 # Initialize activation with state
         gauss_dist = Normal(loc=mu, scale=self.sigma)
         action_mu = gauss_dist.sample()
 
@@ -1405,11 +1411,13 @@ class MuPolicyNetwork(nn.Module):
         action = action_mu#torch.cat(action_mu, 1)
         action.detach()
 
-        action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
+        #action[:2] = action[:2].clamp(min=self.min_action_value, max=self.max_action_value)  # CLAMP PRICES
         #action[-2:] = action[-2:].clamp(min=self.min_action_value_two, max=self.max_action_value_two)  # CLAMP VOLUMES
+        action = action.clamp(min=self.min_action_value, max=self.max_action_value)
         #action[-2:] = action[-2:].int()
 
-        log_prob_mu = gauss_dist.log_prob(action_mu)
+        #log_prob_mu = gauss_dist.log_prob(action_mu)
+        log_prob_mu = gauss_dist.log_prob(action)
         #log_prob_p = binomial_dist.log_prob(action_p)
 
         log_prob = log_prob_mu
@@ -1590,7 +1598,8 @@ class ActorCriticAgent:
         # state_next_values = self.vf(next_states)
         # advantage = state_next_values - state_values
         advantage = new_q_values - state_values
-        policy_loss = -(log_pis * (advantage.detach())).mean()
+        policy_loss = (-(log_pis * advantage.detach())).mean()
+        #policy_loss = -(log_pis * advantage.detach()).mean()
         # advantage = new_q_values - state_values
         # # policy_loss = -(log_pis * (log_pis - advantage.detach())).mean()
         # # policy_loss = (log_pis * (advantage.detach() - log_pis)).mean()
